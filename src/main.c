@@ -1,7 +1,7 @@
-#include <stdio.h>
+#include "emulator.h"
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
-    printf("Welcome\n");
+    emulator_run(argc, argv);
     return 0;
 }
