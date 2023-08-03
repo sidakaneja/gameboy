@@ -11,7 +11,7 @@ struct emulator_context
     SDL_Window *window;
     SDL_Renderer *renderer;
     // Stores the RGB values for each pixel. hXw layout to reduce memory accesses since gameboy renders in column order.
-    BYTE screen_data[GAMEBOY_SCREEN_HEIGHT][GAMEBOY_SCREEN_WIDTH][3];
+    BYTE screen_data[SCREEN_HEIGHT][SCREEN_WIDTH][3];
 
     bool quit;
 };

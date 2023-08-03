@@ -19,7 +19,7 @@ static bool _sdl_init()
         EMULATOR_WINDOW_TITLE,
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        GAMEBOY_SCREEN_WIDTH * GAMEBOY_PIXEL_MULTIPLIER, GAMEBOY_SCREEN_HEIGHT * GAMEBOY_PIXEL_MULTIPLIER, 0);
+        SCREEN_WIDTH * PIXEL_MULTIPLIER, SCREEN_HEIGHT * PIXEL_MULTIPLIER, 0);
 
     // Set background to black
     _emulator.renderer = SDL_CreateRenderer(_emulator.window, -1, SDL_TEXTUREACCESS_TARGET);
@@ -37,21 +37,21 @@ static void _sdl_destroy()
 // Each frame, render the pixels
 static void _sdl_render()
 {
-    for (int x = 0; x < GAMEBOY_SCREEN_WIDTH; x++)
+    for (int x = 0; x < SCREEN_WIDTH; x++)
     {
-        for (int y = 0; y < GAMEBOY_SCREEN_HEIGHT; y++)
+        for (int y = 0; y < SCREEN_HEIGHT; y++)
         {
             // Set RGB value for the display pixel
             SDL_SetRenderDrawColor(_emulator.renderer, _emulator.screen_data[y][x][0], _emulator.screen_data[y][x][1], _emulator.screen_data[y][x][2], 255);
             SDL_Rect r;
-            r.x = x * GAMEBOY_PIXEL_MULTIPLIER;
-            r.y = y * GAMEBOY_PIXEL_MULTIPLIER;
-            r.w = GAMEBOY_PIXEL_MULTIPLIER;
-            r.h = GAMEBOY_PIXEL_MULTIPLIER;
+            r.x = x * PIXEL_MULTIPLIER;
+            r.y = y * PIXEL_MULTIPLIER;
+            r.w = PIXEL_MULTIPLIER;
+            r.h = PIXEL_MULTIPLIER;
             SDL_RenderFillRect(_emulator.renderer, &r);
-            SDL_RenderPresent(_emulator.renderer);
         }
     }
+    SDL_RenderPresent(_emulator.renderer);
 }
 
 static void _sdl_poll_quit()
@@ -87,8 +87,22 @@ static void _emulator_destroy()
 
 static void _emulator_update()
 {
-    _sdl_render();
     _sdl_poll_quit();
+    if (_emulator.quit)
+    {
+        return;
+    }
+
+    const int CYCLES_PER_FRAME = CPU_CLOCK_SPEED / FRAME_RATE;
+    int cycles_this_update = 0;
+
+    while (cycles_this_update < CYCLES_PER_FRAME)
+    {
+        // Replace with cycles for next opcode
+        int cycles = 4;
+        cycles_this_update += cycles;
+    }
+    _sdl_render();
 }
 
 // Main emulator loop
@@ -101,10 +115,22 @@ void emulator_run(int argc, char **argv)
     }
 
     // Infinite loop that runs until the user closes the window
-    // Runs GAMEBOY_FRAME_RATE times a second
+    // Runs FRAME_RATE times a second
     while (!_emulator.quit)
     {
+        const uint64_t ms_per_frame = 1000 / FRAME_RATE;
+        uint64_t frame_start = SDL_GetTicks64();
+
+        // Runs for one frame, that is, CYCLES_PER_FRAME clock cycles
+        // _emulator_update is called FRAME_RATE times a second
         _emulator_update();
+        uint64_t frame_time = SDL_GetTicks64() - frame_start;
+
+        if (frame_time < ms_per_frame)
+        {
+            uint32_t delay_for = ms_per_frame - frame_time;
+            SDL_Delay(delay_for);
+        }
     }
 
     _emulator_destroy();
