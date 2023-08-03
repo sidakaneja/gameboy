@@ -50,6 +50,8 @@ static void _CPU_RL_THROUGH_CARRY(BYTE *byte);
 static void _CPU_SHIFT_RIGHT_INTO_CARRY(BYTE *reg);
 static void _CPU_RR_THROUGH_CARRY(BYTE *reg);
 
+static void _CPU_SWAP_NIBBLES(BYTE *reg);
+
 static int _cpu_execute_cb_instruction();
 
 void temp_print_registers()
@@ -1013,6 +1015,28 @@ int cpu_next_execute_instruction()
         return 12;
     }
 
+    // 16-bit decrement register
+    case 0x0B:
+    {
+        _CPU_16BIT_DEC(&_cpu.BC.reg);
+        return 8;
+    }
+    case 0x1B:
+    {
+        _CPU_16BIT_DEC(&_cpu.DE.reg);
+        return 8;
+    }
+    case 0x2B:
+    {
+        _CPU_16BIT_DEC(&_cpu.HL.reg);
+        return 8;
+    }
+    case 0x3B:
+    {
+        _CPU_16BIT_DEC(&_cpu.SP.reg);
+        return 8;
+    }
+
     // 8-Bit compare
     case 0xBF: // Compare A with value, set flags accordingly
     {
@@ -1341,6 +1365,50 @@ static int _cpu_execute_cb_instruction()
     {
         _CPU_RR_THROUGH_CARRY(&_cpu.AF.hi);
         return 8;
+    }
+
+    // swap nibbles
+    case 0x37:
+    {
+        _CPU_SWAP_NIBBLES(&_cpu.AF.hi);
+        return 8;
+    }
+    case 0x30:
+    {
+        _CPU_SWAP_NIBBLES(&_cpu.BC.hi);
+        return 8;
+    }
+    case 0x31:
+    {
+        _CPU_SWAP_NIBBLES(&_cpu.BC.lo);
+        return 8;
+    }
+    case 0x32:
+    {
+        _CPU_SWAP_NIBBLES(&_cpu.DE.hi);
+        return 8;
+    }
+    case 0x33:
+    {
+        _CPU_SWAP_NIBBLES(&_cpu.DE.lo);
+        return 8;
+    }
+    case 0x34:
+    {
+        _CPU_SWAP_NIBBLES(&_cpu.HL.hi);
+        return 8;
+    }
+    case 0x35:
+    {
+        _CPU_SWAP_NIBBLES(&_cpu.HL.lo);
+        return 8;
+    }
+    case 0x36:
+    {
+        BYTE byte = memory_read(_cpu.HL.reg);
+        _CPU_SWAP_NIBBLES(&byte);
+        memory_write(_cpu.HL.reg, byte);
+        return 16;
     }
 
     // Shift n right into Carry. MSB set to 0, flags set
@@ -1758,6 +1826,18 @@ static void _CPU_RR_THROUGH_CARRY(BYTE *reg)
         bit_set(reg, 7);
     }
     if (reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+}
+
+static void _CPU_SWAP_NIBBLES(BYTE *reg)
+{
+    _cpu.AF.lo = 0;
+
+    *reg = (((*reg & 0xF0) >> 4) | ((*reg & 0x0F) << 4));
+
+    if (*reg == 0)
     {
         bit_set(&_cpu.AF.lo, FLAG_Z);
     }

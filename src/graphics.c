@@ -18,6 +18,7 @@ COLOUR _graphics_get_colour(BYTE colourNum, WORD address);
 void graphics_init()
 {
     memset(&graphics, 0, sizeof(graphics));
+    graphics.scanline_counter = SCANLINE_CLOCK_CYCLES;
 }
 void graphics_update(int cycles)
 {
@@ -33,7 +34,7 @@ void graphics_update(int cycles)
         BYTE prev_scanline = memory_direct_read(SCANLINE_ADDRESS);
         memory_direct_write(SCANLINE_ADDRESS, prev_scanline + 1);
 
-        BYTE cur_scanline = memory_read(SCANLINE_ADDRESS);
+        BYTE cur_scanline = memory_direct_read(SCANLINE_ADDRESS);
 
         graphics.scanline_counter = SCANLINE_CLOCK_CYCLES;
 
@@ -59,20 +60,20 @@ static void _graphics_set_lcd_status()
 {
     BYTE status = memory_read(LCD_STATUS_ADDRESS);
 
-    if (_graphics_is_lcd_enabled())
+    if (!_graphics_is_lcd_enabled())
     {
         // must set LCD mode to 1 for some games to work
-        graphics.scanline_counter = 456;
+        graphics.scanline_counter = SCANLINE_CLOCK_CYCLES;
         memory_direct_write(SCANLINE_ADDRESS, 0);
 
         // & sets mode to 1
         status &= 252;
         bit_set(&status, 0);
-        memory_write(LCD_STATUS_ADDRESS, status);
+        memory_direct_write(LCD_STATUS_ADDRESS, status);
         return;
     }
 
-    BYTE cur_scanline = memory_read(SCANLINE_ADDRESS);
+    BYTE cur_scanline = memory_direct_read(SCANLINE_ADDRESS);
     BYTE current_mode = status & 0x3;
 
     BYTE mode = 0;
