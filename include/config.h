@@ -16,4 +16,9 @@ static const int SCREEN_WIDTH = 160;
 static const int SCREEN_HEIGHT = 144;
 
 static const int CPU_CLOCK_SPEED = 4194304;
+
+#define FLAG_Z 7
+#define FLAG_N 6
+#define FLAG_H 5
+#define FLAG_C 4
 #endif

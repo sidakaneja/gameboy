@@ -1,4 +1,4 @@
-#include <memory.h>
+#include <string.h>
 
 #include "emulator.h"
 
@@ -95,11 +95,11 @@ static void _emulator_update()
 
     const int CYCLES_PER_FRAME = CPU_CLOCK_SPEED / FRAME_RATE;
     int cycles_this_update = 0;
-
+    // Run CYCLES_PER_FRAME clock cycles before rendering to screen
     while (cycles_this_update < CYCLES_PER_FRAME)
     {
         // Replace with cycles for next opcode
-        int cycles = 4;
+        int cycles = cpu_next_execute_instruction();
         cycles_this_update += cycles;
     }
     _sdl_render();
