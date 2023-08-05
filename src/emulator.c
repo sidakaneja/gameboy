@@ -123,6 +123,7 @@ void emulator_run(int argc, char **argv)
 
         // Runs for one frame, that is, CYCLES_PER_FRAME clock cycles
         // _emulator_update is called FRAME_RATE times a second
+        // After CYCLES_PER_FRAME clock cycles, renders screen
         _emulator_update();
         uint64_t frame_time = SDL_GetTicks64() - frame_start;
 

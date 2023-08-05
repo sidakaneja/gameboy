@@ -5,7 +5,9 @@
 
 // Data types
 typedef uint8_t BYTE;
-typedef uint8_t WORD;
+typedef int8_t SIGNED_BYTE;
+typedef uint16_t WORD;
+typedef int16_t SIGNED_WORD;
 
 #define EMULATOR_WINDOW_TITLE "Gameboy Emulator"
 static const int FRAME_RATE = 60;

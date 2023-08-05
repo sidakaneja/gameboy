@@ -13,3 +13,10 @@ BYTE memory_read(WORD address)
     // TODO
     assert(false);
 }
+
+void memory_write(WORD address, BYTE data)
+{
+
+    // TODO
+    assert(false);
+}
