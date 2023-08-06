@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "cpu.h"
-#include "memory.h"
+#include "em_memory.h"
 
 static struct cpu_context _cpu;
 
@@ -40,175 +40,275 @@ int cpu_next_execute_instruction()
 {
     // Read next opcode and increment PC
     BYTE opcode = memory_read(_cpu.PC.reg);
+    printf("Executing %0x at PC %x\n", opcode, _cpu.PC.reg);
     _cpu.PC.reg += 1;
 
     switch (opcode)
     {
     case 0x00: // NOP
+    {
         return 4;
-
+    }
     // Load BYTE value to A from register/memory/immediate value
     case 0x3E: // LD A,u8 - 0x3E
+    {
         _CPU_REG_LOAD(&_cpu.AF.hi, _read_byte_at_pc());
         _cpu.PC.reg += 1;
         return 8;
+    }
     case 0x7F: // LD A, register
+    {
         _CPU_REG_LOAD(&_cpu.AF.hi, _cpu.AF.hi);
         return 4;
+    }
     case 0x78:
+    {
         _CPU_REG_LOAD(&_cpu.AF.hi, _cpu.BC.hi);
         return 4;
+    }
     case 0x79:
+    {
         _CPU_REG_LOAD(&_cpu.AF.hi, _cpu.BC.lo);
         return 4;
+    }
     case 0x7A:
+    {
         _CPU_REG_LOAD(&_cpu.AF.hi, _cpu.DE.hi);
         return 4;
+    }
     case 0x7B:
+    {
         _CPU_REG_LOAD(&_cpu.AF.hi, _cpu.DE.lo);
         return 4;
+    }
     case 0x7C:
+    {
         _CPU_REG_LOAD(&_cpu.AF.hi, _cpu.HL.hi);
         return 4;
+    }
     case 0x7D:
+    {
         _CPU_REG_LOAD(&_cpu.AF.hi, _cpu.HL.lo);
         return 4;
+    }
 
     // 8 bit loads
     case 0x06: // LD reg,u8
+    {
         _CPU_8BIT_LOAD(&_cpu.BC.hi);
         return 8;
+    }
     case 0x0E:
+    {
         _CPU_8BIT_LOAD(&_cpu.BC.lo);
         return 8;
+    }
     case 0x16:
+    {
         _CPU_8BIT_LOAD(&_cpu.DE.hi);
         return 8;
+    }
     case 0x1E:
+    {
         _CPU_8BIT_LOAD(&_cpu.DE.lo);
         return 8;
+    }
     case 0x26:
+    {
         _CPU_8BIT_LOAD(&_cpu.HL.hi);
         return 8;
+    }
     case 0x2E:
+    {
         _CPU_8BIT_LOAD(&_cpu.HL.lo);
         return 8;
+    }
 
     // 16 bit loads
     case 0x01: // LD BC,u16
+    {
         _CPU_16BIT_LOAD(&_cpu.BC.reg);
         return 12;
+    }
     case 0x11: // LD DE,u16
+    {
         _CPU_16BIT_LOAD(&_cpu.DE.reg);
         return 12;
+    }
     case 0x21: // LD HL,u16
+    {
         _CPU_16BIT_LOAD(&_cpu.HL.reg);
         return 12;
+    }
     case 0x31: // LD SP,u16
+    {
         _CPU_16BIT_LOAD(&_cpu.SP.reg);
         return 12;
+    }
 
     // 8-bit xor A with something
     case 0xAF: // XOR A,A
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, _cpu.AF.hi, false);
         return 4;
+    }
     case 0xA8: // XOR A,B
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, _cpu.BC.hi, false);
         return 4;
+    }
     case 0xA9: // XOR A,C
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, _cpu.BC.lo, false);
         return 4;
+    }
     case 0xAA: // XOR A,D
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, _cpu.DE.hi, false);
         return 4;
+    }
     case 0xAB: // XOR A,E
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, _cpu.DE.lo, false);
         return 4;
+    }
     case 0xAC: // XOR A,H
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, _cpu.HL.hi, false);
         return 4;
+    }
     case 0xAD: // XOR A,L
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, _cpu.HL.lo, false);
         return 4;
+    }
     case 0xAE: // XOR A,(HL)
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, memory_read(_cpu.HL.reg), false);
         return 8;
+    }
     case 0xEE: // XOR A, *
+    {
         _CPU_8BIT_XOR(&_cpu.AF.hi, 0, true);
         return 8;
+    }
 
     // Write A to memory HL, decrement/increment register HL
     case 0x32: // LD (HL-),A
+    {
         memory_write(_cpu.HL.reg, _cpu.AF.hi);
         _CPU_16BIT_DEC(&_cpu.HL.reg);
         return 8;
+    }
     case 0x22: // LD (HL+),A
+    {
         memory_write(_cpu.HL.reg, _cpu.AF.hi);
         _CPU_16BIT_INC(&_cpu.HL.reg);
         return 8;
+    }
 
         // put A into memory address
     case 0x02:
+    {
         memory_write(_cpu.BC.reg, _cpu.AF.hi);
         return 8;
+    }
     case 0x12:
+    {
         memory_write(_cpu.DE.reg, _cpu.AF.hi);
         return 8;
+    }
     case 0x77:
+    {
         memory_write(_cpu.HL.reg, _cpu.AF.hi);
         return 8;
+    }
+
+    case 0xE0: // LD (FF00+u8),A
+    {
+        BYTE add_to_address = memory_read(_cpu.PC.reg);
+        _cpu.PC.reg += 1;
+        memory_write((0xFF00 + add_to_address), _cpu.AF.hi);
+        return 12;
+    }
     case 0xE2:
+    {
         memory_write((0xFF00 + _cpu.BC.lo), _cpu.AF.hi);
         return 8;
-
+    }
     // 8-bit inc register
     case 0x3C:
+    {
         _CPU_8BIT_INC(&_cpu.AF.hi);
         return 4;
+    }
     case 0x04:
+    {
         _CPU_8BIT_INC(&_cpu.BC.hi);
         return 4;
+    }
     case 0x0C:
+    {
         _CPU_8BIT_INC(&_cpu.BC.lo);
         return 4;
+    }
     case 0x14:
+    {
         _CPU_8BIT_INC(&_cpu.DE.hi);
         return 4;
+    }
     case 0x1C:
+    {
         _CPU_8BIT_INC(&_cpu.DE.lo);
         return 4;
+    }
     case 0x24:
+    {
         _CPU_8BIT_INC(&_cpu.HL.hi);
         return 4;
+    }
     case 0x2C:
+    {
         _CPU_8BIT_INC(&_cpu.HL.lo);
         return 4;
+    }
 
         // If following condition is met then add n to current address and jump to it
     case 0x18: // JR, *
+    {
         _CPU_JUMP_IF_CONDITION(true, true);
         return 8;
+    }
     case 0x20: // JR NZ,*
+    {
         _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_Z), false);
         return 8;
+    }
     case 0x28: // JR Z,*
+    {
         _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_Z), true);
         return 8;
+    }
     case 0x30: // JR NC,*
+    {
         _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_C), false);
         return 8;
+    }
     case 0x38: // JR C,*
+    {
         _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_C), true);
         return 8;
-
+    }
     // CB instructions
     case 0xCB:
-        // Increment PC to get OXCB prefixed opcode
-        _cpu.PC.reg += 1;
+    {
         return _cpu_execute_cb_instruction();
+    }
     default:
-        printf("Not implemented%x\n", opcode);
+    {
+        printf("Not implemented %x at PC%x\n", opcode, _cpu.PC.reg);
         assert(false);
+    }
     };
 }
 
@@ -220,11 +320,15 @@ static int _cpu_execute_cb_instruction()
     switch (opcode)
     {
     case 0x7C:
+    {
         _CPU_TEST_BIT(_cpu.HL.hi, 7);
         return 8;
+    }
     default:
+    {
         printf("Not implemented 0xCB-%x\n", opcode);
         assert(false);
+    }
     }
 }
 
