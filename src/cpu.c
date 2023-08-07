@@ -15,16 +15,19 @@ static SIGNED_BYTE _read_signed_byte_at_pc();
 static void _bit_set(BYTE *byte, int bit_to_set);
 static void _bit_reset(BYTE *byte, int bit_to_reset);
 static bool _bit_test(BYTE byte, int bit_to_test);
+static void _push_word_onto_stack(WORD word);
 
 // Master instructions for opcodes
 static void _CPU_8BIT_LOAD(BYTE *reg);
 static void _CPU_16BIT_LOAD(WORD *reg);
 static void _CPU_REG_LOAD(BYTE *reg, BYTE val);
+static void _CPU_REG_LOAD_FROM_MEMORY(BYTE *reg, WORD address);
 static void _CPU_8BIT_XOR(BYTE *reg, BYTE to_xor, bool read_byte);
 static void _CPU_16BIT_DEC(WORD *reg);
 static void _CPU_8BIT_INC(BYTE *reg);
 static void _CPU_16BIT_INC(WORD *reg);
 static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition);
+static void _CPU_CALL(bool condition_result, bool condition);
 
 // CP instructions
 static void _CPU_TEST_BIT(BYTE reg, int bit);
@@ -92,7 +95,39 @@ int cpu_next_execute_instruction()
         return 4;
     }
 
-    // 8 bit loads
+    // Put value at A into another register
+    case 0x47: // LD register, A
+    {
+        _CPU_REG_LOAD(&_cpu.BC.hi, _cpu.AF.hi);
+        return 4;
+    }
+    case 0x4F:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.lo, _cpu.AF.hi);
+        return 4;
+    }
+    case 0x57:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.hi, _cpu.AF.hi);
+        return 4;
+    }
+    case 0x5F:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.lo, _cpu.AF.hi);
+        return 4;
+    }
+    case 0x67:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.hi, _cpu.AF.hi);
+        return 4;
+    }
+    case 0x6F:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.lo, _cpu.AF.hi);
+        return 4;
+    }
+
+    // 8 bit loads, load BYTE at pc to register
     case 0x06: // LD reg,u8
     {
         _CPU_8BIT_LOAD(&_cpu.BC.hi);
@@ -143,6 +178,65 @@ int cpu_next_execute_instruction()
     case 0x31: // LD SP,u16
     {
         _CPU_16BIT_LOAD(&_cpu.SP.reg);
+        return 12;
+    }
+
+    // write memory to reg
+    case 0x7E:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.HL.reg);
+        return 8;
+    }
+    case 0x46:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.BC.hi, _cpu.HL.reg);
+        return 8;
+    }
+    case 0x4E:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.BC.lo, _cpu.HL.reg);
+        return 8;
+    }
+    case 0x56:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.DE.hi, _cpu.HL.reg);
+        return 8;
+    }
+    case 0x5E:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.DE.lo, _cpu.HL.reg);
+        return 8;
+    }
+    case 0x66:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.HL.hi, _cpu.HL.reg);
+        return 8;
+    }
+    case 0x6E:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.HL.lo, _cpu.HL.reg);
+        return 8;
+    }
+    case 0x0A:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.BC.reg);
+        return 8;
+    }
+    case 0x1A:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.DE.reg);
+        return 8;
+    }
+    case 0xF2:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, (0xFF00 + _cpu.BC.lo));
+        return 8;
+    }
+    case 0xF0:
+    {
+        BYTE read = _read_byte_at_pc();
+        _cpu.PC.reg += 1;
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, memory_read(0xFF00 + read));
         return 12;
     }
 
@@ -207,7 +301,7 @@ int cpu_next_execute_instruction()
         return 8;
     }
 
-        // put A into memory address
+    // put A into memory address
     case 0x02:
     {
         memory_write(_cpu.BC.reg, _cpu.AF.hi);
@@ -299,14 +393,64 @@ int cpu_next_execute_instruction()
         _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_C), true);
         return 8;
     }
-    // CB instructions
+
+        // calls
+    case 0xCD:
+    {
+        _CPU_CALL(true, true);
+        return 12;
+    }
+    case 0xC4:
+    {
+        _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_Z), false);
+        return 12;
+    }
+    case 0xCC:
+    {
+        _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_Z), true);
+        return 12;
+    }
+    case 0xD4:
+    {
+        _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_C), false);
+        return 12;
+    }
+    case 0xDC:
+    {
+        _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_C), true);
+        return 12;
+    }
+
+    // push word onto stack
+    case 0xF5:
+    {
+        _push_word_onto_stack(_cpu.AF.reg);
+        return 16;
+    }
+    case 0xC5:
+    {
+        _push_word_onto_stack(_cpu.BC.reg);
+        return 16;
+    }
+    case 0xD5:
+    {
+        _push_word_onto_stack(_cpu.DE.reg);
+        return 16;
+    }
+    case 0xE5:
+    {
+        _push_word_onto_stack(_cpu.HL.reg);
+        return 16;
+    }
+
+        // CB instructions
     case 0xCB:
     {
         return _cpu_execute_cb_instruction();
     }
     default:
     {
-        printf("Not implemented %x at PC%x\n", opcode, _cpu.PC.reg);
+        printf("Not implemented %x at PC%x\n", opcode, _cpu.PC.reg - 1);
         assert(false);
     }
     };
@@ -352,6 +496,12 @@ static void _CPU_16BIT_LOAD(WORD *reg)
 static void _CPU_REG_LOAD(BYTE *reg, BYTE val)
 {
     *reg = val;
+}
+
+// Load a BYTE from memory into a register
+static void _CPU_REG_LOAD_FROM_MEMORY(BYTE *reg, WORD address)
+{
+    *reg = memory_read(address);
 }
 
 static void _CPU_8BIT_XOR(BYTE *reg, BYTE to_xor, bool read_byte)
@@ -422,6 +572,18 @@ static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition)
     _cpu.PC.reg += 1;
 }
 
+static void _CPU_CALL(bool condition_result, bool condition)
+{
+    WORD new_address = _read_word_at_pc();
+    _cpu.PC.reg += 2;
+
+    if (condition_result == condition)
+    {
+        _push_word_onto_stack(new_address);
+        _cpu.PC.reg = new_address;
+    }
+}
+
 static void _CPU_TEST_BIT(BYTE reg, int bit)
 {
     if (_bit_test(reg, bit))
@@ -470,4 +632,14 @@ static bool _bit_test(BYTE byte, int bit_to_test)
 {
     BYTE mask = 0x01 << bit_to_test;
     return (byte & mask) ? true : false;
+}
+
+static void _push_word_onto_stack(WORD word)
+{
+    BYTE hi = word >> 8;
+    BYTE lo = word & 0xFF;
+    _cpu.SP.reg -= 1;
+    memory_write(_cpu.SP.reg, hi);
+    _cpu.SP.reg -= 1;
+    memory_write(_cpu.SP.reg, lo);
 }
