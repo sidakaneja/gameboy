@@ -8,7 +8,7 @@
 
 static struct cpu_context _cpu;
 
-// static helper functions
+// Helpers ////////////////////////////////////////////////////////////
 static WORD _read_word_at_pc();
 static BYTE _read_byte_at_pc();
 static SIGNED_BYTE _read_signed_byte_at_pc();
@@ -16,6 +16,7 @@ static void _bit_set(BYTE *byte, int bit_to_set);
 static void _bit_reset(BYTE *byte, int bit_to_reset);
 static bool _bit_test(BYTE byte, int bit_to_test);
 static void _push_word_onto_stack(WORD word);
+static WORD _pop_word_off_stack();
 
 // Master instructions for opcodes
 static void _CPU_8BIT_LOAD(BYTE *reg);
@@ -29,8 +30,9 @@ static void _CPU_16BIT_INC(WORD *reg);
 static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition);
 static void _CPU_CALL(bool condition_result, bool condition);
 
-// CP instructions
+// CB instructions ///////////////////////////////////////////////////
 static void _CPU_TEST_BIT(BYTE reg, int bit);
+static void _CPU_RL_THROUGH_CARRY(BYTE *byte);
 
 static int _cpu_execute_cb_instruction();
 
@@ -443,7 +445,35 @@ int cpu_next_execute_instruction()
         return 16;
     }
 
-        // CB instructions
+    // Pop word off stack and put into register
+    case 0xF1:
+    {
+        _cpu.AF.reg = _pop_word_off_stack();
+        return 12;
+    }
+    case 0xC1:
+    {
+        _cpu.BC.reg = _pop_word_off_stack();
+        return 12;
+    }
+    case 0xD1:
+    {
+        _cpu.DE.reg = _pop_word_off_stack();
+        return 12;
+    }
+    case 0xE1:
+    {
+        _cpu.HL.reg = _pop_word_off_stack();
+        return 12;
+    }
+
+    // Unique
+    case 0x17: // RLA through carry
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
+        return 4;
+    }
+    // CB instructions
     case 0xCB:
     {
         return _cpu_execute_cb_instruction();
@@ -463,6 +493,43 @@ static int _cpu_execute_cb_instruction()
 
     switch (opcode)
     {
+    // rotate left through carry, set lsb to old carry
+    case 0x10:
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.BC.hi);
+        return 8;
+    }
+    case 0x11:
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.BC.lo);
+        return 8;
+    }
+    case 0x12:
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.DE.hi);
+        return 8;
+    }
+    case 0x13:
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.DE.lo);
+        return 8;
+    }
+    case 0x14:
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.HL.hi);
+        return 8;
+    }
+    case 0x15:
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.HL.lo);
+        return 8;
+    }
+    case 0x17:
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
+        return 8;
+    }
+
     case 0x7C:
     {
         _CPU_TEST_BIT(_cpu.HL.hi, 7);
@@ -584,6 +651,8 @@ static void _CPU_CALL(bool condition_result, bool condition)
     }
 }
 
+// CB instructions ///////////////////////////////////////////////////
+
 static void _CPU_TEST_BIT(BYTE reg, int bit)
 {
     if (_bit_test(reg, bit))
@@ -598,6 +667,30 @@ static void _CPU_TEST_BIT(BYTE reg, int bit)
     _bit_set(&_cpu.AF.lo, FLAG_H);
 }
 
+// Rotate byte left, set Z if result == 0, C constains bit 7 data
+static void _CPU_RL_THROUGH_CARRY(BYTE *byte)
+{
+    bool is_carry_set = _bit_test(_cpu.AF.lo, FLAG_C);
+    _cpu.AF.lo = 0;
+
+    if (_bit_test(*byte, 7))
+    {
+        _bit_set(&_cpu.AF.lo, FLAG_C);
+    }
+
+    *byte <<= 1;
+    if (*byte == 0)
+    {
+        _bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+
+    if (is_carry_set)
+    {
+        _bit_set(byte, 0);
+    }
+}
+
+// Helpers ////////////////////////////////////////////////////////////
 static WORD _read_word_at_pc()
 {
     WORD res = memory_read(_cpu.PC.reg + 1);
@@ -642,4 +735,12 @@ static void _push_word_onto_stack(WORD word)
     memory_write(_cpu.SP.reg, hi);
     _cpu.SP.reg -= 1;
     memory_write(_cpu.SP.reg, lo);
+}
+static WORD _pop_word_off_stack()
+{
+    WORD word = memory_read(_cpu.SP.reg + 1) << 8;
+    word |= memory_read(_cpu.SP.reg);
+    _cpu.SP.reg += 2;
+
+    return word;
 }
