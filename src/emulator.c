@@ -1,6 +1,10 @@
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 
 #include "emulator.h"
+#include "em_memory.h"
 
 static struct emulator_context _emulator;
 
@@ -114,6 +118,19 @@ void emulator_run(int argc, char **argv)
         return;
     }
 
+    // Temporary load rom function
+    assert(argc > 1);
+    BYTE *m_CartridgeMemory = (BYTE *)malloc(0x200000 * sizeof(BYTE));
+    memset(m_CartridgeMemory, 0, (0x200000 * sizeof(BYTE)));
+
+    FILE *in;
+    in = fopen(argv[1], "rb");
+    fread(m_CartridgeMemory, 1, 0x200000, in);
+    fclose(in);
+
+    memory_init(m_CartridgeMemory);
+    cpu_intialize();
+
     // Infinite loop that runs until the user closes the window
     // Runs FRAME_RATE times a second
     while (!_emulator.quit)
@@ -135,4 +152,10 @@ void emulator_run(int argc, char **argv)
     }
 
     _emulator_destroy();
+}
+
+void emulator_disable_interupts()
+{
+    // TODO
+    printf("TODO disable interupts instruction 0XF3\n");
 }

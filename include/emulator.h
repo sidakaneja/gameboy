@@ -19,4 +19,6 @@ struct emulator_context
 };
 
 void emulator_run(int argc, char **argv);
+
+void emulator_disable_interupts();
 #endif

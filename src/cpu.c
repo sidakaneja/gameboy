@@ -999,13 +999,3 @@ static WORD _pop_word_off_stack()
 
     return word;
 }
-
-void temp_cpu_print_registers()
-{
-    printf("AF: %x\n", _cpu.AF.reg);
-    printf("BC: %x\n", _cpu.BC.reg);
-    printf("DE: %x\n", _cpu.DE.reg);
-    printf("HL: %x\n", _cpu.HL.reg);
-    printf("PC: %x\n", _cpu.PC.reg);
-    printf("SP: %x\n", _cpu.SP.reg);
-}

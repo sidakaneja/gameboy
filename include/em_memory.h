@@ -1,15 +1,11 @@
-#ifndef MEMORY_H
-#define MEMORY_H
+#ifndef EM_MEMORY_H
+#define EM_MEMORY_H
 
 #include <stdbool.h>
 #include "config.h"
 
-struct memory_context
-{
+void memory_init(BYTE *mem);
 
-};
-
-void initialize_memory(bool bootstrap_provided);
 BYTE memory_read(WORD address);
 void memory_write(WORD address, BYTE data);
 #endif
