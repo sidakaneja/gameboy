@@ -5,6 +5,7 @@
 
 #include "cpu.h"
 #include "em_memory.h"
+#include "emulator.h"
 
 static struct cpu_context _cpu;
 
@@ -23,12 +24,19 @@ static void _CPU_8BIT_LOAD(BYTE *reg);
 static void _CPU_16BIT_LOAD(WORD *reg);
 static void _CPU_REG_LOAD(BYTE *reg, BYTE val);
 static void _CPU_REG_LOAD_FROM_MEMORY(BYTE *reg, WORD address);
+
 static void _CPU_8BIT_XOR(BYTE *reg, BYTE to_xor, bool read_byte);
+
+static void _CPU_8BIT_DEC(BYTE *reg);
 static void _CPU_16BIT_DEC(WORD *reg);
 static void _CPU_8BIT_INC(BYTE *reg);
 static void _CPU_16BIT_INC(WORD *reg);
+static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp);
+
 static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition);
+static void _CPU_JUMP_TO_IMMEDIATE_WORD(bool condition_result, bool condition);
 static void _CPU_CALL(bool condition_result, bool condition);
+static void _CPU_RETURN(bool condition_result, bool condition);
 
 // CB instructions ///////////////////////////////////////////////////
 static void _CPU_TEST_BIT(BYTE reg, int bit);
@@ -39,6 +47,12 @@ static int _cpu_execute_cb_instruction();
 void cpu_intialize()
 {
     memset(&_cpu, 0, sizeof(_cpu));
+    _cpu.PC.reg = 0x100;
+    _cpu.AF.reg = 0x01B0;
+    _cpu.BC.reg = 0x0013;
+    _cpu.DE.reg = 0x00D8;
+    _cpu.HL.reg = 0x014D;
+    _cpu.SP.reg = 0xFFFE;
 }
 
 int cpu_next_execute_instruction()
@@ -369,7 +383,142 @@ int cpu_next_execute_instruction()
         return 4;
     }
 
-        // If following condition is met then add n to current address and jump to it
+    // 16-bit increment register
+    case 0x03:
+    {
+        _CPU_16BIT_INC(&_cpu.BC.reg);
+        return 8;
+    }
+    case 0x13:
+    {
+        _CPU_16BIT_INC(&_cpu.DE.reg);
+        return 8;
+    }
+    case 0x23:
+    {
+        _CPU_16BIT_INC(&_cpu.HL.reg);
+        return 8;
+    }
+    case 0x33:
+    {
+        _CPU_16BIT_INC(&_cpu.SP.reg);
+        return 8;
+    }
+
+    // 8-bit decrement register
+    case 0x3D:
+    {
+        _CPU_8BIT_DEC(&_cpu.AF.hi);
+        return 4;
+    }
+    case 0x05:
+    {
+        _CPU_8BIT_DEC(&_cpu.BC.hi);
+        return 4;
+    }
+    case 0x0D:
+    {
+        _CPU_8BIT_DEC(&_cpu.BC.lo);
+        return 4;
+    }
+    case 0x15:
+    {
+        _CPU_8BIT_DEC(&_cpu.DE.hi);
+        return 4;
+    }
+    case 0x1D:
+    {
+        _CPU_8BIT_DEC(&_cpu.DE.lo);
+        return 4;
+    }
+    case 0x25:
+    {
+        _CPU_8BIT_DEC(&_cpu.HL.hi);
+        return 4;
+    }
+    case 0x2D:
+    {
+        _CPU_8BIT_DEC(&_cpu.HL.lo);
+        return 4;
+    }
+
+    // 8-Bit compare
+    case 0xBF: // Compare A with value, set flags accordingly
+    {
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, _cpu.AF.hi);
+        return 4;
+    }
+    case 0xB8:
+    {
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, _cpu.BC.hi);
+        return 4;
+    }
+    case 0xB9:
+    {
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, _cpu.BC.lo);
+        return 4;
+    }
+    case 0xBA:
+    {
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, _cpu.DE.hi);
+        return 4;
+    }
+    case 0xBB:
+    {
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, _cpu.DE.lo);
+        return 4;
+    }
+    case 0xBC:
+    {
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, _cpu.HL.hi);
+        return 4;
+    }
+    case 0xBD:
+    {
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, _cpu.HL.lo);
+        return 4;
+    }
+    case 0xBE:
+    {
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, memory_read(_cpu.HL.reg));
+        return 8;
+    }
+    case 0xFE:
+    {
+        BYTE n = _read_byte_at_pc();
+        _cpu.PC.reg += 1;
+        _CPU_8BIT_COMPARE(_cpu.AF.hi, n);
+        return 8;
+    }
+
+    // Jump to address given by immediate word if condition is met
+    case 0xC3:
+    {
+        _CPU_JUMP_TO_IMMEDIATE_WORD(true, true);
+        return 12;
+    }
+    case 0xC2:
+    {
+        _CPU_JUMP_TO_IMMEDIATE_WORD(_bit_test(_cpu.AF.lo, FLAG_Z), false);
+        return 12;
+    }
+    case 0xCA:
+    {
+        _CPU_JUMP_TO_IMMEDIATE_WORD(_bit_test(_cpu.AF.lo, FLAG_Z), true);
+        return 12;
+    }
+    case 0xD2:
+    {
+        _CPU_JUMP_TO_IMMEDIATE_WORD(_bit_test(_cpu.AF.lo, FLAG_C), false);
+        return 12;
+    }
+    case 0xDA:
+    {
+        _CPU_JUMP_TO_IMMEDIATE_WORD(_bit_test(_cpu.AF.lo, FLAG_C), true);
+        return 12;
+    }
+
+    // If following condition is met then add n to current address and jump to it
     case 0x18: // JR, *
     {
         _CPU_JUMP_IF_CONDITION(true, true);
@@ -396,7 +545,7 @@ int cpu_next_execute_instruction()
         return 8;
     }
 
-        // calls
+    // calls
     case 0xCD:
     {
         _CPU_CALL(true, true);
@@ -421,6 +570,33 @@ int cpu_next_execute_instruction()
     {
         _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_C), true);
         return 12;
+    }
+
+    // returns
+    case 0xC9:
+    {
+        _CPU_RETURN(true, true);
+        return 8;
+    }
+    case 0xC0:
+    {
+        _CPU_RETURN(_bit_test(_cpu.AF.lo, FLAG_Z), false);
+        return 8;
+    }
+    case 0xC8:
+    {
+        _CPU_RETURN(_bit_test(_cpu.AF.lo, FLAG_Z), true);
+        return 8;
+    }
+    case 0xD0:
+    {
+        _CPU_RETURN(_bit_test(_cpu.AF.lo, FLAG_C), false);
+        return 8;
+    }
+    case 0xD8:
+    {
+        _CPU_RETURN(_bit_test(_cpu.AF.lo, FLAG_C), true);
+        return 8;
     }
 
     // push word onto stack
@@ -471,6 +647,11 @@ int cpu_next_execute_instruction()
     case 0x17: // RLA through carry
     {
         _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
+        return 4;
+    }
+    case 0xF3: // Disable interupts
+    {
+        emulator_disable_interupts();
         return 4;
     }
     // CB instructions
@@ -588,6 +769,7 @@ static void _CPU_8BIT_XOR(BYTE *reg, BYTE to_xor, bool read_byte)
         _bit_set(&_cpu.AF.lo, FLAG_Z);
     }
 }
+
 static void _CPU_8BIT_INC(BYTE *reg)
 {
     BYTE before = *reg;
@@ -616,6 +798,35 @@ static void _CPU_8BIT_INC(BYTE *reg)
     }
 }
 
+// Decrement BYTE in register, set appropriate flags
+static void _CPU_8BIT_DEC(BYTE *reg)
+{
+    BYTE before = *reg;
+    *reg -= 1;
+
+    // If result == 0, set Zero flag
+    if (*reg == 0)
+    {
+        _bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+    else
+    {
+        _bit_reset(&_cpu.AF.lo, FLAG_Z);
+    }
+
+    _bit_set(&_cpu.AF.lo, FLAG_N);
+
+    // Set H if borrow from bit 4, that is lower nibble is == 0
+    if ((before & 0XF) == 0)
+    {
+        _bit_set(&_cpu.AF.lo, FLAG_H);
+    }
+    else
+    {
+        _bit_reset(&_cpu.AF.lo, FLAG_H);
+    }
+}
+
 static void _CPU_16BIT_DEC(WORD *reg)
 {
     *reg -= 1;
@@ -624,6 +835,29 @@ static void _CPU_16BIT_DEC(WORD *reg)
 static void _CPU_16BIT_INC(WORD *reg)
 {
     *reg += 1;
+}
+
+static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp)
+{
+    _cpu.AF.lo = 0x0;
+    if (orig == comp)
+    {
+        _bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+    _bit_set(&_cpu.AF.lo, FLAG_N);
+
+    if (orig < comp)
+    {
+        _bit_set(&_cpu.AF.lo, FLAG_C);
+    }
+
+    SIGNED_WORD htest = orig & 0xF;
+    htest -= (comp & 0xF);
+
+    if (htest < 0)
+    {
+        _bit_set(&_cpu.AF.lo, FLAG_H);
+    }
 }
 
 static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition)
@@ -639,6 +873,18 @@ static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition)
     _cpu.PC.reg += 1;
 }
 
+static void _CPU_JUMP_TO_IMMEDIATE_WORD(bool condition_result, bool condition)
+{
+
+    WORD word = _read_word_at_pc();
+    _cpu.PC.reg += 2;
+
+    if (condition_result == condition)
+    {
+        // If condition is met, go to new address
+        _cpu.PC.reg = word;
+    }
+}
 static void _CPU_CALL(bool condition_result, bool condition)
 {
     WORD new_address = _read_word_at_pc();
@@ -651,6 +897,14 @@ static void _CPU_CALL(bool condition_result, bool condition)
     }
 }
 
+// pop word off stack and set PC to it if condition is met.
+static void _CPU_RETURN(bool condition_result, bool condition)
+{
+    if (condition_result == condition)
+    {
+        _cpu.PC.reg = _pop_word_off_stack();
+    }
+}
 // CB instructions ///////////////////////////////////////////////////
 
 static void _CPU_TEST_BIT(BYTE reg, int bit)
@@ -736,6 +990,7 @@ static void _push_word_onto_stack(WORD word)
     _cpu.SP.reg -= 1;
     memory_write(_cpu.SP.reg, lo);
 }
+
 static WORD _pop_word_off_stack()
 {
     WORD word = memory_read(_cpu.SP.reg + 1) << 8;
@@ -743,4 +998,14 @@ static WORD _pop_word_off_stack()
     _cpu.SP.reg += 2;
 
     return word;
+}
+
+void temp_cpu_print_registers()
+{
+    printf("AF: %x\n", _cpu.AF.reg);
+    printf("BC: %x\n", _cpu.BC.reg);
+    printf("DE: %x\n", _cpu.DE.reg);
+    printf("HL: %x\n", _cpu.HL.reg);
+    printf("PC: %x\n", _cpu.PC.reg);
+    printf("SP: %x\n", _cpu.SP.reg);
 }
