@@ -6,6 +6,7 @@
 #include "cpu.h"
 #include "em_memory.h"
 #include "emulator.h"
+#include "common.h"
 
 static struct cpu_context _cpu;
 
@@ -13,9 +14,6 @@ static struct cpu_context _cpu;
 static WORD _read_word_at_pc();
 static BYTE _read_byte_at_pc();
 static SIGNED_BYTE _read_signed_byte_at_pc();
-static void _bit_set(BYTE *byte, int bit_to_set);
-static void _bit_reset(BYTE *byte, int bit_to_reset);
-static bool _bit_test(BYTE byte, int bit_to_test);
 static void _push_word_onto_stack(WORD word);
 static WORD _pop_word_off_stack();
 
@@ -499,22 +497,22 @@ int cpu_next_execute_instruction()
     }
     case 0xC2:
     {
-        _CPU_JUMP_TO_IMMEDIATE_WORD(_bit_test(_cpu.AF.lo, FLAG_Z), false);
+        _CPU_JUMP_TO_IMMEDIATE_WORD(bit_test(_cpu.AF.lo, FLAG_Z), false);
         return 12;
     }
     case 0xCA:
     {
-        _CPU_JUMP_TO_IMMEDIATE_WORD(_bit_test(_cpu.AF.lo, FLAG_Z), true);
+        _CPU_JUMP_TO_IMMEDIATE_WORD(bit_test(_cpu.AF.lo, FLAG_Z), true);
         return 12;
     }
     case 0xD2:
     {
-        _CPU_JUMP_TO_IMMEDIATE_WORD(_bit_test(_cpu.AF.lo, FLAG_C), false);
+        _CPU_JUMP_TO_IMMEDIATE_WORD(bit_test(_cpu.AF.lo, FLAG_C), false);
         return 12;
     }
     case 0xDA:
     {
-        _CPU_JUMP_TO_IMMEDIATE_WORD(_bit_test(_cpu.AF.lo, FLAG_C), true);
+        _CPU_JUMP_TO_IMMEDIATE_WORD(bit_test(_cpu.AF.lo, FLAG_C), true);
         return 12;
     }
 
@@ -526,22 +524,22 @@ int cpu_next_execute_instruction()
     }
     case 0x20: // JR NZ,*
     {
-        _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_Z), false);
+        _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_Z), false);
         return 8;
     }
     case 0x28: // JR Z,*
     {
-        _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_Z), true);
+        _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_Z), true);
         return 8;
     }
     case 0x30: // JR NC,*
     {
-        _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_C), false);
+        _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_C), false);
         return 8;
     }
     case 0x38: // JR C,*
     {
-        _CPU_JUMP_IF_CONDITION(_bit_test(_cpu.AF.lo, FLAG_C), true);
+        _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_C), true);
         return 8;
     }
 
@@ -553,22 +551,22 @@ int cpu_next_execute_instruction()
     }
     case 0xC4:
     {
-        _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_Z), false);
+        _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_Z), false);
         return 12;
     }
     case 0xCC:
     {
-        _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_Z), true);
+        _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_Z), true);
         return 12;
     }
     case 0xD4:
     {
-        _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_C), false);
+        _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_C), false);
         return 12;
     }
     case 0xDC:
     {
-        _CPU_CALL(_bit_test(_cpu.AF.lo, FLAG_C), true);
+        _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_C), true);
         return 12;
     }
 
@@ -580,22 +578,22 @@ int cpu_next_execute_instruction()
     }
     case 0xC0:
     {
-        _CPU_RETURN(_bit_test(_cpu.AF.lo, FLAG_Z), false);
+        _CPU_RETURN(bit_test(_cpu.AF.lo, FLAG_Z), false);
         return 8;
     }
     case 0xC8:
     {
-        _CPU_RETURN(_bit_test(_cpu.AF.lo, FLAG_Z), true);
+        _CPU_RETURN(bit_test(_cpu.AF.lo, FLAG_Z), true);
         return 8;
     }
     case 0xD0:
     {
-        _CPU_RETURN(_bit_test(_cpu.AF.lo, FLAG_C), false);
+        _CPU_RETURN(bit_test(_cpu.AF.lo, FLAG_C), false);
         return 8;
     }
     case 0xD8:
     {
-        _CPU_RETURN(_bit_test(_cpu.AF.lo, FLAG_C), true);
+        _CPU_RETURN(bit_test(_cpu.AF.lo, FLAG_C), true);
         return 8;
     }
 
@@ -766,7 +764,7 @@ static void _CPU_8BIT_XOR(BYTE *reg, BYTE to_xor, bool read_byte)
     _cpu.AF.lo = 0x00;
     if (*reg == 0)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_Z);
+        bit_set(&_cpu.AF.lo, FLAG_Z);
     }
 }
 
@@ -778,23 +776,23 @@ static void _CPU_8BIT_INC(BYTE *reg)
     // If result == 0, set Zero flag
     if (*reg == 0)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_Z);
+        bit_set(&_cpu.AF.lo, FLAG_Z);
     }
     else
     {
-        _bit_reset(&_cpu.AF.lo, FLAG_Z);
+        bit_reset(&_cpu.AF.lo, FLAG_Z);
     }
 
-    _bit_reset(&_cpu.AF.lo, FLAG_N);
+    bit_reset(&_cpu.AF.lo, FLAG_N);
 
     // If carry from bit 3 to bit 4, that is lower nibble is 1111 before increment, set half carry flag.
     if ((before & 0XF) == 0XF)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_H);
+        bit_set(&_cpu.AF.lo, FLAG_H);
     }
     else
     {
-        _bit_reset(&_cpu.AF.lo, FLAG_H);
+        bit_reset(&_cpu.AF.lo, FLAG_H);
     }
 }
 
@@ -807,23 +805,23 @@ static void _CPU_8BIT_DEC(BYTE *reg)
     // If result == 0, set Zero flag
     if (*reg == 0)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_Z);
+        bit_set(&_cpu.AF.lo, FLAG_Z);
     }
     else
     {
-        _bit_reset(&_cpu.AF.lo, FLAG_Z);
+        bit_reset(&_cpu.AF.lo, FLAG_Z);
     }
 
-    _bit_set(&_cpu.AF.lo, FLAG_N);
+    bit_set(&_cpu.AF.lo, FLAG_N);
 
     // Set H if borrow from bit 4, that is lower nibble is == 0
     if ((before & 0XF) == 0)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_H);
+        bit_set(&_cpu.AF.lo, FLAG_H);
     }
     else
     {
-        _bit_reset(&_cpu.AF.lo, FLAG_H);
+        bit_reset(&_cpu.AF.lo, FLAG_H);
     }
 }
 
@@ -842,13 +840,13 @@ static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp)
     _cpu.AF.lo = 0x0;
     if (orig == comp)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_Z);
+        bit_set(&_cpu.AF.lo, FLAG_Z);
     }
-    _bit_set(&_cpu.AF.lo, FLAG_N);
+    bit_set(&_cpu.AF.lo, FLAG_N);
 
     if (orig < comp)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_C);
+        bit_set(&_cpu.AF.lo, FLAG_C);
     }
 
     SIGNED_WORD htest = orig & 0xF;
@@ -856,7 +854,7 @@ static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp)
 
     if (htest < 0)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_H);
+        bit_set(&_cpu.AF.lo, FLAG_H);
     }
 }
 
@@ -909,38 +907,38 @@ static void _CPU_RETURN(bool condition_result, bool condition)
 
 static void _CPU_TEST_BIT(BYTE reg, int bit)
 {
-    if (_bit_test(reg, bit))
+    if (bit_test(reg, bit))
     {
-        _bit_reset(&_cpu.AF.lo, FLAG_Z);
+        bit_reset(&_cpu.AF.lo, FLAG_Z);
     }
     else
     {
-        _bit_set(&_cpu.AF.lo, FLAG_Z);
+        bit_set(&_cpu.AF.lo, FLAG_Z);
     }
-    _bit_reset(&_cpu.AF.lo, FLAG_N);
-    _bit_set(&_cpu.AF.lo, FLAG_H);
+    bit_reset(&_cpu.AF.lo, FLAG_N);
+    bit_set(&_cpu.AF.lo, FLAG_H);
 }
 
 // Rotate byte left, set Z if result == 0, C constains bit 7 data
 static void _CPU_RL_THROUGH_CARRY(BYTE *byte)
 {
-    bool is_carry_set = _bit_test(_cpu.AF.lo, FLAG_C);
+    bool is_carry_set = bit_test(_cpu.AF.lo, FLAG_C);
     _cpu.AF.lo = 0;
 
-    if (_bit_test(*byte, 7))
+    if (bit_test(*byte, 7))
     {
-        _bit_set(&_cpu.AF.lo, FLAG_C);
+        bit_set(&_cpu.AF.lo, FLAG_C);
     }
 
     *byte <<= 1;
     if (*byte == 0)
     {
-        _bit_set(&_cpu.AF.lo, FLAG_Z);
+        bit_set(&_cpu.AF.lo, FLAG_Z);
     }
 
     if (is_carry_set)
     {
-        _bit_set(byte, 0);
+        bit_set(byte, 0);
     }
 }
 
@@ -961,24 +959,6 @@ static BYTE _read_byte_at_pc()
 static SIGNED_BYTE _read_signed_byte_at_pc()
 {
     return (SIGNED_BYTE)memory_read(_cpu.PC.reg);
-}
-
-static void _bit_set(BYTE *byte, int bit_to_set)
-{
-    BYTE mask = 0x01 << bit_to_set;
-    *byte |= mask;
-}
-
-static void _bit_reset(BYTE *byte, int bit_to_reset)
-{
-    BYTE mask = ~(0x01 << bit_to_reset);
-    *byte &= mask;
-}
-
-static bool _bit_test(BYTE byte, int bit_to_test)
-{
-    BYTE mask = 0x01 << bit_to_test;
-    return (byte & mask) ? true : false;
 }
 
 static void _push_word_onto_stack(WORD word)

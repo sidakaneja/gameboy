@@ -5,6 +5,8 @@
 
 #include "emulator.h"
 #include "em_memory.h"
+#include "graphics.h"
+#include "common.h"
 
 static struct emulator_context _emulator;
 
@@ -81,6 +83,7 @@ static bool _emulator_init()
         return false;
     }
 
+    graphics_init();
     return true;
 }
 
@@ -105,6 +108,7 @@ static void _emulator_update()
         // Replace with cycles for next opcode
         int cycles = cpu_next_execute_instruction();
         cycles_this_update += cycles;
+        graphics_update(cycles);
     }
     _sdl_render();
 }
@@ -158,4 +162,12 @@ void emulator_disable_interupts()
 {
     // TODO
     printf("TODO disable interupts instruction 0XF3\n");
+}
+
+// Set the requested interrupt bit at the interrupt register
+void emulator_request_interrupts(BYTE interrupt_bit)
+{
+    BYTE req = memory_read(INTERRUPT_REGISTER_ADDRESS);
+    bit_set(&req, interrupt_bit);
+    memory_write(INTERRUPT_REGISTER_ADDRESS, req);
 }

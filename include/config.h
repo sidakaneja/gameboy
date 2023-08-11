@@ -23,4 +23,19 @@ static const int CPU_CLOCK_SPEED = 4194304;
 #define FLAG_N 6
 #define FLAG_H 5
 #define FLAG_C 4
+
+// Graphics
+#define SCANLINE_ADDRESS 0xFF44
+#define NUM_SCANLINES 144
+#define SCANLINE_CLOCK_CYCLES 456
+#define LCD_STATUS_ADDRESS 0xFF41
+
+// Interrupt bits
+#define VBLANK_INTERRUPT 0
+#define LCD_INTERRUPT 1
+#define TIMER_INTERRUPT 2
+#define JOYPAD_INTERRUPT 4
+
+#define INTERRUPT_REGISTER_ADDRESS 0xFF0F
+
 #endif

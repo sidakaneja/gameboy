@@ -49,5 +49,24 @@ BYTE memory_read(WORD address)
 
 void memory_write(WORD address, BYTE data)
 {
+    if (address == SCANLINE_ADDRESS)
+    {
+        // When a game writes to the SCANLINE_ADDRESS, it starts re-rendering from the 0th scanline
+        memory[address] = 0;
+    }
+    else
+    {
+        memory[address] = data;
+    }
+}
+
+// ONLY USED WHEN THE HARDWARE CHAGES MEMORY AND NOT THE GAME
+void memory_direct_write(WORD address, BYTE data)
+{
     memory[address] = data;
+}
+
+BYTE memory_direct_read(WORD address)
+{
+    return memory[address];
 }
