@@ -12,7 +12,8 @@ static void _graphics_set_lcd_status();
 static void _graphics_draw_scanline();
 static bool _graphics_is_lcd_enabled();
 static void _graphics_render_background(BYTE lcd_control);
-COLOUR _graphics_get_color(BYTE colourNum, WORD address);
+static void _graphics_render_sprites(BYTE lcd_control);
+COLOUR _graphics_get_colour(BYTE colourNum, WORD address);
 
 void graphics_init()
 {
@@ -143,7 +144,7 @@ static void _graphics_draw_scanline()
     if (_graphics_is_lcd_enabled())
     {
         _graphics_render_background(lcd_control);
-        // RenderSprites(lcd_control);
+        _graphics_render_sprites(lcd_control);
     }
 }
 
@@ -282,7 +283,7 @@ static void _graphics_render_background(BYTE lcd_control)
         colourNum <<= 1;
         colourNum |= bit_get(data1, colourBit);
 
-        COLOUR col = _graphics_get_color(colourNum, 0xFF47);
+        COLOUR col = _graphics_get_colour(colourNum, 0xFF47);
         int red = 0;
         int green = 0;
         int blue = 0;
@@ -320,7 +321,119 @@ static void _graphics_render_background(BYTE lcd_control)
     }
 }
 
-COLOUR _graphics_get_color(BYTE colourNum, WORD address)
+static void _graphics_render_sprites(BYTE lcd_control)
+{
+
+    // Draw sprites if enabled
+    if (!bit_test(lcd_control, LCD_SPRITES_ENABLED_BIT))
+    {
+        return;
+    }
+
+    bool use8x16 = false;
+    if (bit_test(lcd_control, 2))
+        use8x16 = true;
+
+    for (int sprite = 0; sprite < 40; sprite++)
+    {
+        BYTE index = sprite * 4;
+        BYTE yPos = memory_read(0xFE00 + index) - 16;
+        BYTE xPos = memory_read(0xFE00 + index + 1) - 8;
+        BYTE tileLocation = memory_read(0xFE00 + index + 2);
+        BYTE attributes = memory_read(0xFE00 + index + 3);
+
+        bool yFlip = bit_test(attributes, 6);
+        bool xFlip = bit_test(attributes, 5);
+
+        int scanline = memory_read(0xFF44);
+
+        int ysize = 8;
+
+        if (use8x16)
+            ysize = 16;
+
+        if ((scanline >= yPos) && (scanline < (yPos + ysize)))
+        {
+            int line = scanline - yPos;
+
+            if (yFlip)
+            {
+                line -= ysize;
+                line *= -1;
+            }
+
+            line *= 2;
+            BYTE data1 = memory_read((0x8000 + (tileLocation * 16)) + line);
+            BYTE data2 = memory_read((0x8000 + (tileLocation * 16)) + line + 1);
+
+            for (int tilePixel = 7; tilePixel >= 0; tilePixel--)
+            {
+                int colourbit = tilePixel;
+                if (xFlip)
+                {
+                    colourbit -= 7;
+                    colourbit *= -1;
+                }
+                int colourNum = bit_get(data2, colourbit);
+                colourNum <<= 1;
+                colourNum |= bit_get(data1, colourbit);
+
+                COLOUR col = _graphics_get_colour(colourNum, bit_test(attributes, 4) ? 0xFF49 : 0xFF48);
+
+                // white is transparent for sprites.
+                if (col == WHITE)
+                    continue;
+
+                int red = 0;
+                int green = 0;
+                int blue = 0;
+
+                switch (col)
+                {
+                case WHITE:
+                    red = 255;
+                    green = 255;
+                    blue = 255;
+                    break;
+                case LIGHT_GRAY:
+                    red = 0xCC;
+                    green = 0xCC;
+                    blue = 0xCC;
+                    break;
+                case DARK_GRAY:
+                    red = 0x77;
+                    green = 0x77;
+                    blue = 0x77;
+                    break;
+                }
+
+                int xPix = 0 - tilePixel;
+                xPix += 7;
+
+                int pixel = xPos + xPix;
+
+                if ((scanline < 0) || (scanline > 143) || (pixel < 0) || (pixel > 159))
+                {
+                    //	assert(false) ;
+                    continue;
+                }
+
+                // check if pixel is hidden behind background
+                if (bit_test(attributes, 7) == 1)
+                {
+                    if ((graphics.screen_data[scanline][pixel][0] != 255) || (graphics.screen_data[scanline][pixel][1] != 255) || (graphics.screen_data[scanline][pixel][2] != 255))
+                        continue;
+                }
+
+                graphics.screen_data[scanline][pixel][0] = red;
+                graphics.screen_data[scanline][pixel][1] = green;
+                graphics.screen_data[scanline][pixel][2] = blue;
+            }
+        }
+    }
+}
+
+COLOUR _graphics_get_colour(BYTE colourNum, WORD address)
 {
     COLOUR res = WHITE;
     BYTE palette = memory_read(address);
