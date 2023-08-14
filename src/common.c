@@ -19,3 +19,9 @@ bool bit_test(BYTE byte, int bit_to_test)
     BYTE mask = 0x01 << bit_to_test;
     return (byte & mask) ? true : false;
 }
+
+BYTE bit_get(BYTE byte, int bit_to_get)
+{
+    BYTE mask = 0x01 << bit_to_get;
+    return (byte & mask) ? 1 : 0;
+}

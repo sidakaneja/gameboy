@@ -5,6 +5,8 @@
 
 static BYTE *memory = 0;
 
+static void _memory_dma_transfer(BYTE data);
+
 void memory_init(BYTE *mem)
 {
     memory = mem;
@@ -54,6 +56,11 @@ void memory_write(WORD address, BYTE data)
         // When a game writes to the SCANLINE_ADDRESS, it starts re-rendering from the 0th scanline
         memory[address] = 0;
     }
+    else if (address == DMA_ADDRESS)
+    {
+        // game launches a DMA for sprites when it attempts to write to memory address DMA_ADDRESS
+        _memory_dma_transfer(data);
+    }
     else
     {
         memory[address] = data;
@@ -69,4 +76,14 @@ void memory_direct_write(WORD address, BYTE data)
 BYTE memory_direct_read(WORD address)
 {
     return memory[address];
+}
+
+// For context, refer to http://www.codeslinger.co.uk/pages/projects/gameboy/dma.html
+static void _memory_dma_transfer(BYTE data)
+{
+    WORD address = data << 8; // source address is data * 100
+    for (int i = 0; i < 0xA0; i++)
+    {
+        memory_write(0xFE00 + i, memory_read(address + i));
+    }
 }

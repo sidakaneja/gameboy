@@ -29,7 +29,7 @@ static bool _sdl_init()
 
     // Set background to black
     _emulator.renderer = SDL_CreateRenderer(_emulator.window, -1, SDL_TEXTUREACCESS_TARGET);
-    SDL_SetRenderDrawColor(_emulator.renderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(_emulator.renderer, 255, 255, 255, 255);
     SDL_RenderClear(_emulator.renderer);
 
     return true;
@@ -48,7 +48,7 @@ static void _sdl_render()
         for (int y = 0; y < SCREEN_HEIGHT; y++)
         {
             // Set RGB value for the display pixel
-            SDL_SetRenderDrawColor(_emulator.renderer, _emulator.screen_data[y][x][0], _emulator.screen_data[y][x][1], _emulator.screen_data[y][x][2], 255);
+            SDL_SetRenderDrawColor(_emulator.renderer, graphics_get_screen_data(y, x, 0), graphics_get_screen_data(y, x, 1), graphics_get_screen_data(y, x, 2), 255);
             SDL_Rect r;
             r.x = x * PIXEL_MULTIPLIER;
             r.y = y * PIXEL_MULTIPLIER;
