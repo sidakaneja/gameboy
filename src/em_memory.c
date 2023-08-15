@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "em_memory.h"
+#include "emulator.h"
 
 static BYTE *memory = 0;
 
@@ -60,6 +61,39 @@ void memory_write(WORD address, BYTE data)
     {
         // game launches a DMA for sprites when it attempts to write to memory address DMA_ADDRESS
         _memory_dma_transfer(data);
+    }
+    else if (address == TIMER_CONTROLLER_ADDRESS)
+    {
+        // Game is changing the timer frequencey
+        memory[address] = data;
+
+        int timerVal = data & 0x03;
+
+        int clockSpeed = 0;
+
+        switch (timerVal)
+        {
+        case 0:
+            clockSpeed = 1024;
+            break;
+        case 1:
+            clockSpeed = 16;
+            break;
+        case 2:
+            clockSpeed = 64;
+            break;
+        case 3:
+            clockSpeed = 256;
+            break; // 256
+        default:
+            assert(false);
+            break; // weird timer val
+        }
+
+        if (clockSpeed != emulator_get_clock_speed())
+        {
+            emulator_set_clock_speed(clockSpeed);
+        }
     }
     else
     {

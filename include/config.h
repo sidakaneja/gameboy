@@ -59,4 +59,9 @@ typedef enum COLOUR
 
 #define DMA_ADDRESS 0xFF46
 
+// Timer Info
+#define TIMA 0xFF05
+#define TMA 0xFF06
+#define TIMER_CONTROLLER_ADDRESS 0xFF07
+#define DIVIDER_REGISTER_ADDRESS 0xFF04
 #endif

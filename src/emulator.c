@@ -10,6 +10,8 @@
 
 static struct emulator_context _emulator;
 
+static void _emulator_update_timers(int cycles);
+
 // Initialize SDL Window and renderer, set background color to black
 static bool _sdl_init()
 {
@@ -48,7 +50,7 @@ static void _sdl_render()
         for (int y = 0; y < SCREEN_HEIGHT; y++)
         {
             // Set RGB value for the display pixel
-            SDL_SetRenderDrawColor(_emulator.renderer, graphics_get_screen_data(y, x, 0), graphics_get_screen_data(y, x, 1), graphics_get_screen_data(y, x, 2), 255);
+            SDL_SetRenderDrawColor(_emulator.renderer, graphics_get_screen_data(y, x, 0), graphics_get_screen_data(y, x, 1), graphics_get_screen_data(y, x, 2), 175);
             SDL_Rect r;
             r.x = x * PIXEL_MULTIPLIER;
             r.y = y * PIXEL_MULTIPLIER;
@@ -77,6 +79,7 @@ static void _sdl_poll_quit()
 static bool _emulator_init()
 {
     memset(&_emulator, 0, sizeof(_emulator));
+    _emulator.timer_clocks_per_increment = 1024;
 
     if (!_sdl_init())
     {
@@ -108,6 +111,7 @@ static void _emulator_update()
         // Replace with cycles for next opcode
         int cycles = cpu_next_execute_instruction();
         cycles_this_update += cycles;
+        _emulator_update_timers(cycles);
         graphics_update(cycles);
     }
     _sdl_render();
@@ -170,4 +174,63 @@ void emulator_request_interrupts(BYTE interrupt_bit)
     BYTE req = memory_read(INTERRUPT_REGISTER_ADDRESS);
     bit_set(&req, interrupt_bit);
     memory_write(INTERRUPT_REGISTER_ADDRESS, req);
+}
+
+static void _emulator_update_timers(int cycles)
+{
+    // Bit 2 is if timer is enabled
+
+    // Bit 0 and 1 give the frequency of the timer
+    // 00: 4096 Hz
+    // 01: 262144 Hz
+    // 10: 65536 Hz
+    // 11: 16384 Hzu
+    BYTE timer_controller = memory_direct_read(TIMER_CONTROLLER_ADDRESS);
+
+    _emulator.divider += cycles;
+
+    // Bit 2 of timer_contoller checks if timer is enabled
+    if (bit_test(timer_controller, 2))
+    {
+        // Timer is enabled
+        _emulator.timer += cycles;
+
+        // time to increment the timer register
+        if (_emulator.timer >= _emulator.timer_clocks_per_increment)
+        {
+            _emulator.timer = 0;
+
+            // Timer is about to overflow
+            if (memory_direct_read(TIMA) == 0XFF)
+            {
+                memory_direct_write(TIMA, memory_direct_read(TMA));
+                // request the interupt
+                emulator_request_interrupts(2);
+            }
+            else
+            {
+                BYTE cur_timer_val = memory_direct_read(TIMA);
+                memory_direct_write(TIMA, cur_timer_val + 1);
+            }
+        }
+    }
+
+    // update divider register if enough clock cycles
+    if (_emulator.divider >= 256)
+    {
+        _emulator.divider = 0;
+        BYTE divider_reg_value = memory_direct_read(DIVIDER_REGISTER_ADDRESS);
+        memory_direct_write(DIVIDER_REGISTER_ADDRESS, divider_reg_value + 1);
+    }
+}
+
+int emulator_get_clock_speed()
+{
+    return _emulator.timer_clocks_per_increment;
+}
+
+void emulator_set_clock_speed(int new_speed)
+{
+    _emulator.timer = 0;
+    _emulator.timer_clocks_per_increment = new_speed;
 }
