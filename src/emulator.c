@@ -11,6 +11,8 @@
 static struct emulator_context _emulator;
 
 static void _emulator_update_timers(int cycles);
+static void _emulator_handle_interrupts();
+static void _emulator_service_interrupt(BYTE bit_to_service);
 
 // Initialize SDL Window and renderer, set background color to black
 static bool _sdl_init()
@@ -113,6 +115,7 @@ static void _emulator_update()
         cycles_this_update += cycles;
         _emulator_update_timers(cycles);
         graphics_update(cycles);
+        _emulator_handle_interrupts();
     }
     _sdl_render();
 }
@@ -174,6 +177,64 @@ void emulator_request_interrupts(BYTE interrupt_bit)
     BYTE req = memory_read(INTERRUPT_REGISTER_ADDRESS);
     bit_set(&req, interrupt_bit);
     memory_write(INTERRUPT_REGISTER_ADDRESS, req);
+}
+static void _emulator_handle_interrupts()
+{
+    // are interrupts enabled
+    if (!_emulator.master_interupt)
+    {
+        return;
+    }
+
+    // Check if an interrupt is present
+    BYTE interrupt_register = memory_read(INTERRUPT_REGISTER_ADDRESS);
+    if (interrupt_register > 0)
+    {
+        // Service the highest priority interrupt, lower bit == higher priority
+        for (int bit = 0; bit < 8; bit++)
+        {
+            if (bit_test(interrupt_register, bit))
+            {
+                // check if interrupt is enabled in Interupt Enabled Register at 0xFFFF
+                BYTE enabledReg = memory_read(0xFFFF);
+                if (bit_test(enabledReg, bit))
+                {
+                    _emulator_service_interrupt(bit);
+                }
+            }
+        }
+    }
+}
+
+static void _emulator_service_interrupt(BYTE bit_to_service)
+{
+
+    WORD interrupt_address = 0x00;
+    switch (bit_to_service)
+    {
+    case 0:
+        interrupt_address = 0x40;
+        break; // V-Blank
+    case 1:
+        interrupt_address = 0x48;
+        break; // LCD-STATE
+    case 2:
+        interrupt_address = 0x50;
+        break; // Timer
+    case 4:
+        interrupt_address = 0x60;
+        break; // JoyPad
+    default:
+        assert(false);
+        break;
+    }
+
+    _emulator.master_interupt = false;
+    cpu_interrupt(interrupt_address);
+
+    BYTE interrupts = memory_direct_read(INTERRUPT_REGISTER_ADDRESS);
+    bit_reset(&interrupts, bit_to_service);
+    memory_direct_write(INTERRUPT_REGISTER_ADDRESS, interrupts);
 }
 
 static void _emulator_update_timers(int cycles)

@@ -42,6 +42,12 @@ static void _CPU_RL_THROUGH_CARRY(BYTE *byte);
 
 static int _cpu_execute_cb_instruction();
 
+void cpu_interrupt(WORD interrupt_address)
+{
+    _push_word_onto_stack(_cpu.PC.reg);
+    _cpu.PC.reg = interrupt_address;
+}
+
 void cpu_intialize()
 {
     memset(&_cpu, 0, sizeof(_cpu));
