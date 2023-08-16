@@ -42,6 +42,10 @@ static void _CPU_RL_THROUGH_CARRY(BYTE *byte);
 
 static int _cpu_execute_cb_instruction();
 
+void temp_print_registers()
+{
+    printf("AF:%0X\tBC:%0X\tDE:%0X\tHL:%0X\tSP:%0X\n", _cpu.AF.reg, _cpu.BC.reg, _cpu.DE.reg, _cpu.HL.reg, _cpu.SP.reg);
+}
 void cpu_interrupt(WORD interrupt_address)
 {
     _push_word_onto_stack(_cpu.PC.reg);
@@ -318,6 +322,19 @@ int cpu_next_execute_instruction()
     {
         memory_write(_cpu.HL.reg, _cpu.AF.hi);
         _CPU_16BIT_INC(&_cpu.HL.reg);
+        return 8;
+    }
+    // Write memory HL to A, decrement/increment register HL
+    case 0x2A: // LD A,(HL+)
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.HL.reg);
+        _CPU_16BIT_INC(&_cpu.HL.reg);
+        return 8;
+    }
+    case 0x3A:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.HL.reg);
+        _CPU_16BIT_DEC(&_cpu.HL.reg);
         return 8;
     }
 
@@ -658,6 +675,13 @@ int cpu_next_execute_instruction()
         emulator_disable_interupts();
         return 4;
     }
+    case 0XEA:
+    {
+        WORD address = _read_word_at_pc();
+        _cpu.PC.reg += 2;
+        memory_write(address, _cpu.AF.hi);
+        return 16;
+    }
     // CB instructions
     case 0xCB:
     {
@@ -896,7 +920,7 @@ static void _CPU_CALL(bool condition_result, bool condition)
 
     if (condition_result == condition)
     {
-        _push_word_onto_stack(new_address);
+        _push_word_onto_stack(_cpu.PC.reg);
         _cpu.PC.reg = new_address;
     }
 }

@@ -28,4 +28,5 @@ struct cpu_context
 void cpu_intialize();
 int cpu_next_execute_instruction();
 void cpu_interrupt(WORD interrupt_address);
+void temp_print_registers();
 #endif

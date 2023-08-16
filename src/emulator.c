@@ -36,6 +36,7 @@ static bool _sdl_init()
     SDL_SetRenderDrawColor(_emulator.renderer, 255, 255, 255, 255);
     SDL_RenderClear(_emulator.renderer);
 
+    assert(_emulator.renderer);
     return true;
 }
 
@@ -112,11 +113,32 @@ static void _emulator_update()
     {
         // Replace with cycles for next opcode
         int cycles = cpu_next_execute_instruction();
+        temp_print_registers();
         cycles_this_update += cycles;
+        ////////////////////////////////////////////////////
+        //    blarggs test - serial output
+        if (memory_direct_read(0xff02) == 0x81)
+        {
+            char c = memory_direct_read(0xff01);
+            printf("%c", c);
+
+            memory_direct_write(0xff02, 0x0);
+        }
+        ////////////////////////////////////////////////////
+        if (_emulator.disable_pending > 0)
+        {
+            _emulator.disable_pending -= 1;
+            if (_emulator.disable_pending == 0)
+            {
+                _emulator.master_interupt = false;
+            }
+        }
         _emulator_update_timers(cycles);
         graphics_update(cycles);
         _emulator_handle_interrupts();
     }
+    // assert(false);
+    // printf("Rendering\n");
     _sdl_render();
 }
 
@@ -167,8 +189,7 @@ void emulator_run(int argc, char **argv)
 
 void emulator_disable_interupts()
 {
-    // TODO
-    printf("TODO disable interupts instruction 0XF3\n");
+    _emulator.disable_pending = 2;
 }
 
 // Set the requested interrupt bit at the interrupt register

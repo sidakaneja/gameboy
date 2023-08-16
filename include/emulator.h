@@ -16,6 +16,7 @@ struct emulator_context
     int divider;
 
     bool master_interupt;
+    int disable_pending;
 
     SDL_Window *window;
     SDL_Renderer *renderer;
