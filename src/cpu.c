@@ -24,10 +24,15 @@ static void _CPU_REG_LOAD(BYTE *reg, BYTE val);
 static void _CPU_REG_LOAD_FROM_MEMORY(BYTE *reg, WORD address);
 
 static void _CPU_8BIT_XOR(BYTE *reg, BYTE to_xor, bool read_byte);
+static void _CPU_8BIT_OR(BYTE *reg, BYTE to_or);
+static void _CPU_8BIT_AND(BYTE *reg, BYTE to_and);
 
 static void _CPU_8BIT_DEC(BYTE *reg);
 static void _CPU_16BIT_DEC(WORD *reg);
 static void _CPU_8BIT_INC(BYTE *reg);
+
+static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add);
+
 static void _CPU_16BIT_INC(WORD *reg);
 static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp);
 
@@ -263,6 +268,13 @@ int cpu_next_execute_instruction()
         _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, memory_read(0xFF00 + read));
         return 12;
     }
+    case 0xFA:
+    {
+        WORD address = _read_word_at_pc();
+        _cpu.PC.reg += 2;
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, address);
+        return 16;
+    }
 
     // 8-bit xor A with something
     case 0xAF: // XOR A,A
@@ -308,6 +320,103 @@ int cpu_next_execute_instruction()
     case 0xEE: // XOR A, *
     {
         _CPU_8BIT_XOR(&_cpu.AF.hi, 0, true);
+        return 8;
+    }
+
+    // 8-bit OR reg with reg
+    case 0xB7:
+    {
+        _CPU_8BIT_OR(&_cpu.AF.hi, _cpu.AF.hi);
+        return 4;
+    }
+    case 0xB0:
+    {
+        _CPU_8BIT_OR(&_cpu.AF.hi, _cpu.BC.hi);
+        return 4;
+    }
+    case 0xB1:
+    {
+        _CPU_8BIT_OR(&_cpu.AF.hi, _cpu.BC.lo);
+        return 4;
+    }
+    case 0xB2:
+    {
+        _CPU_8BIT_OR(&_cpu.AF.hi, _cpu.DE.hi);
+        return 4;
+    }
+    case 0xB3:
+    {
+        _CPU_8BIT_OR(&_cpu.AF.hi, _cpu.DE.lo);
+        return 4;
+    }
+    case 0xB4:
+    {
+        _CPU_8BIT_OR(&_cpu.AF.hi, _cpu.HL.hi);
+        return 4;
+    }
+    case 0xB5:
+    {
+        _CPU_8BIT_OR(&_cpu.AF.hi, _cpu.HL.lo);
+        return 4;
+    }
+    case 0xB6:
+    {
+        _CPU_8BIT_OR(&_cpu.AF.hi, memory_read(_cpu.HL.reg));
+        return 8;
+    }
+    case 0xF6:
+    {
+        BYTE to_or = memory_read(_cpu.PC.reg);
+        _cpu.PC.reg += 1;
+        _CPU_8BIT_OR(&_cpu.AF.hi, to_or);
+        return 8;
+    }
+
+    // 8-bit AND A with Byte. Store result back in A. set flags.
+    case 0xA7:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, _cpu.AF.hi);
+        return 4;
+    }
+    case 0xA0:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, _cpu.BC.hi);
+        return 4;
+    }
+    case 0xA1:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, _cpu.BC.lo);
+        return 4;
+    }
+    case 0xA2:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, _cpu.DE.hi);
+        return 4;
+    }
+    case 0xA3:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, _cpu.DE.lo);
+        return 4;
+    }
+    case 0xA4:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, _cpu.HL.hi);
+        return 4;
+    }
+    case 0xA5:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, _cpu.HL.lo);
+        return 4;
+    }
+    case 0xA6:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, memory_read(_cpu.HL.reg));
+        return 8;
+    }
+    case 0xE6:
+    {
+        _CPU_8BIT_AND(&_cpu.AF.hi, _read_byte_at_pc());
+        _cpu.PC.reg += 1;
         return 8;
     }
 
@@ -367,6 +476,104 @@ int cpu_next_execute_instruction()
         memory_write((0xFF00 + _cpu.BC.lo), _cpu.AF.hi);
         return 8;
     }
+
+    // 8-bit add
+    case 0x87:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.AF.hi);
+        return 4;
+    }
+    case 0x80:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.BC.hi);
+        return 4;
+    }
+    case 0x81:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.BC.lo);
+        return 4;
+    }
+    case 0x82:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.DE.hi);
+        return 4;
+    }
+    case 0x83:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.DE.lo);
+        return 4;
+    }
+    case 0x84:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.HL.hi);
+        return 4;
+    }
+    case 0x85:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.HL.lo);
+        return 4;
+    }
+    case 0x86:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, memory_read(_cpu.HL.reg));
+        return 8;
+    }
+    case 0xC6:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _read_byte_at_pc());
+        _cpu.PC.reg += 1;
+        return 8;
+    }
+
+    // 8-bit add + carry
+    case 0x8F:
+    {
+
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.AF.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0x88:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.BC.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0x89:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.BC.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0x8A:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.DE.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0x8B:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.DE.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0x8C:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.HL.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0x8D:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.HL.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0x8E:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, memory_read(_cpu.HL.reg) + bit_get(_cpu.AF.lo, FLAG_C));
+        return 8;
+    }
+    case 0xCE:
+    {
+        _CPU_8BIT_ADD(&_cpu.AF.hi, _read_byte_at_pc() + bit_get(_cpu.AF.lo, FLAG_C));
+        _cpu.PC.reg += 1;
+        return 8;
+    }
+
     // 8-bit inc register
     case 0x3C:
     {
@@ -795,6 +1002,57 @@ static void _CPU_8BIT_XOR(BYTE *reg, BYTE to_xor, bool read_byte)
     if (*reg == 0)
     {
         bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+}
+
+// OR register with value, set flags
+static void _CPU_8BIT_OR(BYTE *reg, BYTE to_or)
+{
+    *reg |= to_or;
+    _cpu.AF.lo = 0;
+
+    if (*reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+}
+
+static void _CPU_8BIT_AND(BYTE *reg, BYTE to_and)
+{
+    *reg &= to_and;
+    _cpu.AF.lo = 0;
+    if (*reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+    bit_set(&_cpu.AF.lo, FLAG_H);
+}
+
+static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add)
+{
+    _cpu.AF.lo = 0;
+
+    BYTE before = *reg;
+    *reg += to_add;
+
+    if (*reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+
+    WORD htest = (before & 0xF);
+    htest += (to_add & 0xF);
+
+    if (htest > 0xF)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_H);
+    }
+
+    WORD sum = (WORD)(before + to_add);
+    // If overflow,set C flag
+    if (sum > 0xFF)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
     }
 }
 
