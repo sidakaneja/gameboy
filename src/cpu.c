@@ -32,6 +32,7 @@ static void _CPU_16BIT_DEC(WORD *reg);
 static void _CPU_8BIT_INC(BYTE *reg);
 
 static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add);
+static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub);
 
 static void _CPU_16BIT_INC(WORD *reg);
 static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp);
@@ -44,6 +45,8 @@ static void _CPU_RETURN(bool condition_result, bool condition);
 // CB instructions ///////////////////////////////////////////////////
 static void _CPU_TEST_BIT(BYTE reg, int bit);
 static void _CPU_RL_THROUGH_CARRY(BYTE *byte);
+static void _CPU_SHIFT_RIGHT_INTO_CARRY(BYTE *reg);
+static void _CPU_RR_THROUGH_CARRY(BYTE *reg);
 
 static int _cpu_execute_cb_instruction();
 
@@ -574,8 +577,104 @@ int cpu_next_execute_instruction()
         return 8;
     }
 
+    // 8-bit subtract from A
+    case 0x97:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.AF.hi);
+        return 4;
+    }
+    case 0x90:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.BC.hi);
+        return 4;
+    }
+    case 0x91:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.BC.lo);
+        return 4;
+    }
+    case 0x92:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.DE.hi);
+        return 4;
+    }
+    case 0x93:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.DE.lo);
+        return 4;
+    }
+    case 0x94:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.HL.hi);
+        return 4;
+    }
+    case 0x95:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.HL.lo);
+        return 4;
+    }
+    case 0x96:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, memory_read(_cpu.HL.reg));
+        return 8;
+    }
+    case 0xD6:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _read_byte_at_pc());
+        _cpu.PC.reg += 1;
+        return 8;
+    }
+
+    // 8-bit subtract + carry
+    case 0x9F:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.AF.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0X98:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.BC.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0X99:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.BC.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0X9A:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.DE.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0X9B:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.DE.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0X9C:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.HL.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0X9D:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.HL.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        return 4;
+    }
+    case 0X9E:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, memory_read(_cpu.HL.reg) + bit_get(_cpu.AF.lo, FLAG_C));
+        return 8;
+    }
+    case 0XDE:
+    {
+        _CPU_8BIT_SUB(&_cpu.AF.hi, _read_byte_at_pc() + bit_get(_cpu.AF.lo, FLAG_C));
+        _cpu.PC.reg += 1;
+        return 8;
+    }
+
     // 8-bit inc register
-    case 0x3C:
+    case 0x3c:
     {
         _CPU_8BIT_INC(&_cpu.AF.hi);
         return 4;
@@ -877,6 +976,11 @@ int cpu_next_execute_instruction()
         _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
         return 4;
     }
+    case 0x1F: // RRA through carry
+    {
+        _CPU_RR_THROUGH_CARRY(&_cpu.AF.hi);
+        return 4;
+    }
     case 0xF3: // Disable interupts
     {
         emulator_disable_interupts();
@@ -943,6 +1047,87 @@ static int _cpu_execute_cb_instruction()
     case 0x17:
     {
         _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
+        return 8;
+    }
+
+    // rotate right through carry
+    case 0x18:
+    {
+        _CPU_RR_THROUGH_CARRY(&_cpu.BC.hi);
+        return 8;
+    }
+    case 0x19:
+    {
+        _CPU_RR_THROUGH_CARRY(&_cpu.BC.lo);
+        return 8;
+    }
+    case 0x1A:
+    {
+        _CPU_RR_THROUGH_CARRY(&_cpu.DE.hi);
+        return 8;
+    }
+    case 0x1B:
+    {
+        _CPU_RR_THROUGH_CARRY(&_cpu.DE.lo);
+        return 8;
+    }
+    case 0x1C:
+    {
+        _CPU_RR_THROUGH_CARRY(&_cpu.HL.hi);
+        return 8;
+    }
+    case 0x1D:
+    {
+        _CPU_RR_THROUGH_CARRY(&_cpu.HL.lo);
+        return 8;
+    }
+    case 0x1E:
+    {
+        BYTE reg = memory_read(_cpu.HL.reg);
+        _CPU_RR_THROUGH_CARRY(&reg);
+        memory_write(_cpu.HL.reg, reg);
+        return 16;
+    }
+    case 0x1F:
+    {
+        _CPU_RR_THROUGH_CARRY(&_cpu.AF.hi);
+        return 8;
+    }
+
+    // Shift n right into Carry. MSB set to 0, flags set
+    case 0x38:
+    {
+        _CPU_SHIFT_RIGHT_INTO_CARRY(&_cpu.BC.hi);
+        return 8;
+    }
+    case 0x39:
+    {
+        _CPU_SHIFT_RIGHT_INTO_CARRY(&_cpu.BC.lo);
+        return 8;
+    }
+    case 0x3A:
+    {
+        _CPU_SHIFT_RIGHT_INTO_CARRY(&_cpu.DE.hi);
+        return 8;
+    }
+    case 0x3B:
+    {
+        _CPU_SHIFT_RIGHT_INTO_CARRY(&_cpu.DE.lo);
+        return 8;
+    }
+    case 0x3C:
+    {
+        _CPU_SHIFT_RIGHT_INTO_CARRY(&_cpu.HL.hi);
+        return 8;
+    }
+    case 0x3D:
+    {
+        _CPU_SHIFT_RIGHT_INTO_CARRY(&_cpu.HL.lo);
+        return 8;
+    }
+    case 0x3F:
+    {
+        _CPU_SHIFT_RIGHT_INTO_CARRY(&_cpu.AF.hi);
         return 8;
     }
 
@@ -1053,6 +1238,35 @@ static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add)
     if (sum > 0xFF)
     {
         bit_set(&_cpu.AF.lo, FLAG_C);
+    }
+}
+
+static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub)
+{
+    BYTE before = *reg;
+    *reg -= to_sub;
+
+    _cpu.AF.lo = 0;
+
+    if (*reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+
+    bit_set(&_cpu.AF.lo, FLAG_N);
+
+    // set if no borrow
+    if (before < to_sub)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
+    }
+
+    SIGNED_WORD htest = (before & 0xF);
+    htest -= (before & 0xF);
+
+    if (htest < 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_H);
     }
 }
 
@@ -1171,6 +1385,7 @@ static void _CPU_JUMP_TO_IMMEDIATE_WORD(bool condition_result, bool condition)
         _cpu.PC.reg = word;
     }
 }
+
 static void _CPU_CALL(bool condition_result, bool condition)
 {
     WORD new_address = _read_word_at_pc();
@@ -1230,6 +1445,47 @@ static void _CPU_RL_THROUGH_CARRY(BYTE *byte)
     }
 }
 
+static void _CPU_SHIFT_RIGHT_INTO_CARRY(BYTE *reg)
+{
+
+    bool is_lsb_set = bit_test(*reg, 0);
+
+    _cpu.AF.lo = 0;
+
+    *reg >>= 1;
+
+    if (is_lsb_set)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
+    }
+    if (reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+}
+
+static void _CPU_RR_THROUGH_CARRY(BYTE *reg)
+{
+    bool is_carry_set = bit_test(_cpu.AF.lo, FLAG_C);
+    bool is_lsb_set = bit_test(*reg, 0);
+
+    _cpu.AF.lo = 0;
+
+    *reg >>= 1;
+
+    if (is_lsb_set)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
+    }
+    if (is_carry_set)
+    {
+        bit_set(reg, 7);
+    }
+    if (reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+}
 // Helpers ////////////////////////////////////////////////////////////
 static WORD _read_word_at_pc()
 {
