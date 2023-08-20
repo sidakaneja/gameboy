@@ -34,6 +34,8 @@ static void _CPU_8BIT_INC(BYTE *reg);
 static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add);
 static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub);
 
+static void _CPU_16BIT_ADD(WORD *reg, WORD to_add);
+
 static void _CPU_16BIT_INC(WORD *reg);
 static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp);
 
@@ -127,7 +129,189 @@ int cpu_next_execute_instruction()
         return 4;
     }
 
-    // Put value at A into another register
+    // Load register with a BYTE
+    case 0x40:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.hi, _cpu.BC.hi);
+        return 4;
+    }
+    case 0x41:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.hi, _cpu.BC.lo);
+        return 4;
+    }
+    case 0x42:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.hi, _cpu.DE.hi);
+        return 4;
+    }
+    case 0x43:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.hi, _cpu.DE.lo);
+        return 4;
+    }
+    case 0x44:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.hi, _cpu.HL.hi);
+        return 4;
+    }
+    case 0x45:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.hi, _cpu.HL.lo);
+        return 4;
+    }
+    case 0x48:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.lo, _cpu.BC.hi);
+        return 4;
+    }
+    case 0x49:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.lo, _cpu.BC.lo);
+        return 4;
+    }
+    case 0x4A:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.lo, _cpu.DE.hi);
+        return 4;
+    }
+    case 0x4B:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.lo, _cpu.DE.lo);
+        return 4;
+    }
+    case 0x4C:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.lo, _cpu.HL.hi);
+        return 4;
+    }
+    case 0x4D:
+    {
+        _CPU_REG_LOAD(&_cpu.BC.lo, _cpu.HL.lo);
+        return 4;
+    }
+    case 0x50:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.hi, _cpu.BC.hi);
+        return 4;
+    }
+    case 0x51:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.hi, _cpu.BC.lo);
+        return 4;
+    }
+    case 0x52:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.hi, _cpu.DE.hi);
+        return 4;
+    }
+    case 0x53:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.hi, _cpu.DE.lo);
+        return 4;
+    }
+    case 0x54:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.hi, _cpu.HL.hi);
+        return 4;
+    }
+    case 0x55:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.hi, _cpu.HL.lo);
+        return 4;
+    }
+    case 0x58:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.lo, _cpu.BC.hi);
+        return 4;
+    }
+    case 0x59:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.lo, _cpu.BC.lo);
+        return 4;
+    }
+    case 0x5A:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.lo, _cpu.DE.hi);
+        return 4;
+    }
+    case 0x5B:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.lo, _cpu.DE.lo);
+        return 4;
+    }
+    case 0x5C:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.lo, _cpu.HL.hi);
+        return 4;
+    }
+    case 0x5D:
+    {
+        _CPU_REG_LOAD(&_cpu.DE.lo, _cpu.HL.lo);
+        return 4;
+    }
+    case 0x60:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.hi, _cpu.BC.hi);
+        return 4;
+    }
+    case 0x61:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.hi, _cpu.BC.lo);
+        return 4;
+    }
+    case 0x62:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.hi, _cpu.DE.hi);
+        return 4;
+    }
+    case 0x63:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.hi, _cpu.DE.lo);
+        return 4;
+    }
+    case 0x64:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.hi, _cpu.HL.hi);
+        return 4;
+    }
+    case 0x65:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.hi, _cpu.HL.lo);
+        return 4;
+    }
+    case 0x68:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.lo, _cpu.BC.hi);
+        return 4;
+    }
+    case 0x69:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.lo, _cpu.BC.lo);
+        return 4;
+    }
+    case 0x6A:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.lo, _cpu.DE.hi);
+        return 4;
+    }
+    case 0x6B:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.lo, _cpu.DE.lo);
+        return 4;
+    }
+    case 0x6C:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.lo, _cpu.HL.hi);
+        return 4;
+    }
+    case 0x6D:
+    {
+        _CPU_REG_LOAD(&_cpu.HL.lo, _cpu.HL.lo);
+        return 4;
+    }
+
+        // Put value at A into another register
     case 0x47: // LD register, A
     {
         _CPU_REG_LOAD(&_cpu.BC.hi, _cpu.AF.hi);
@@ -279,6 +463,94 @@ int cpu_next_execute_instruction()
         return 16;
     }
 
+    // Write A to memory HL, decrement/increment register HL
+    case 0x32: // LD (HL-),A
+    {
+        memory_write(_cpu.HL.reg, _cpu.AF.hi);
+        _CPU_16BIT_DEC(&_cpu.HL.reg);
+        return 8;
+    }
+    case 0x22: // LD (HL+),A
+    {
+        memory_write(_cpu.HL.reg, _cpu.AF.hi);
+        _CPU_16BIT_INC(&_cpu.HL.reg);
+        return 8;
+    }
+    // Write memory HL to A, decrement/increment register HL
+    case 0x2A: // LD A,(HL+)
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.HL.reg);
+        _CPU_16BIT_INC(&_cpu.HL.reg);
+        return 8;
+    }
+    case 0x3A:
+    {
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.HL.reg);
+        _CPU_16BIT_DEC(&_cpu.HL.reg);
+        return 8;
+    }
+
+    // put A into memory address
+    case 0x02:
+    {
+        memory_write(_cpu.BC.reg, _cpu.AF.hi);
+        return 8;
+    }
+    case 0x12:
+    {
+        memory_write(_cpu.DE.reg, _cpu.AF.hi);
+        return 8;
+    }
+    case 0x77:
+    {
+        memory_write(_cpu.HL.reg, _cpu.AF.hi);
+        return 8;
+    }
+    // write register BYTE to memory at HL
+    case 0x70:
+    {
+        memory_write(_cpu.HL.reg, _cpu.BC.hi);
+        return 8;
+    }
+    case 0x71:
+    {
+        memory_write(_cpu.HL.reg, _cpu.BC.lo);
+        return 8;
+    }
+    case 0x72:
+    {
+        memory_write(_cpu.HL.reg, _cpu.DE.hi);
+        return 8;
+    }
+    case 0x73:
+    {
+        memory_write(_cpu.HL.reg, _cpu.DE.lo);
+        return 8;
+    }
+    case 0x74:
+    {
+        memory_write(_cpu.HL.reg, _cpu.HL.hi);
+        return 8;
+    }
+    case 0x75:
+    {
+        memory_write(_cpu.HL.reg, _cpu.HL.lo);
+        return 8;
+    }
+
+    case 0xE0: // LD (FF00+u8),A
+    {
+        BYTE add_to_address = memory_read(_cpu.PC.reg);
+        _cpu.PC.reg += 1;
+        memory_write((0xFF00 + add_to_address), _cpu.AF.hi);
+        return 12;
+    }
+    case 0xE2:
+    {
+        memory_write((0xFF00 + _cpu.BC.lo), _cpu.AF.hi);
+        return 8;
+    }
+
     // 8-bit xor A with something
     case 0xAF: // XOR A,A
     {
@@ -423,63 +695,6 @@ int cpu_next_execute_instruction()
         return 8;
     }
 
-    // Write A to memory HL, decrement/increment register HL
-    case 0x32: // LD (HL-),A
-    {
-        memory_write(_cpu.HL.reg, _cpu.AF.hi);
-        _CPU_16BIT_DEC(&_cpu.HL.reg);
-        return 8;
-    }
-    case 0x22: // LD (HL+),A
-    {
-        memory_write(_cpu.HL.reg, _cpu.AF.hi);
-        _CPU_16BIT_INC(&_cpu.HL.reg);
-        return 8;
-    }
-    // Write memory HL to A, decrement/increment register HL
-    case 0x2A: // LD A,(HL+)
-    {
-        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.HL.reg);
-        _CPU_16BIT_INC(&_cpu.HL.reg);
-        return 8;
-    }
-    case 0x3A:
-    {
-        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, _cpu.HL.reg);
-        _CPU_16BIT_DEC(&_cpu.HL.reg);
-        return 8;
-    }
-
-    // put A into memory address
-    case 0x02:
-    {
-        memory_write(_cpu.BC.reg, _cpu.AF.hi);
-        return 8;
-    }
-    case 0x12:
-    {
-        memory_write(_cpu.DE.reg, _cpu.AF.hi);
-        return 8;
-    }
-    case 0x77:
-    {
-        memory_write(_cpu.HL.reg, _cpu.AF.hi);
-        return 8;
-    }
-
-    case 0xE0: // LD (FF00+u8),A
-    {
-        BYTE add_to_address = memory_read(_cpu.PC.reg);
-        _cpu.PC.reg += 1;
-        memory_write((0xFF00 + add_to_address), _cpu.AF.hi);
-        return 12;
-    }
-    case 0xE2:
-    {
-        memory_write((0xFF00 + _cpu.BC.lo), _cpu.AF.hi);
-        return 8;
-    }
-
     // 8-bit add
     case 0x87:
     {
@@ -574,6 +789,28 @@ int cpu_next_execute_instruction()
     {
         _CPU_8BIT_ADD(&_cpu.AF.hi, _read_byte_at_pc() + bit_get(_cpu.AF.lo, FLAG_C));
         _cpu.PC.reg += 1;
+        return 8;
+    }
+
+    // 16-bit add to HL
+    case 0x09:
+    {
+        _CPU_16BIT_ADD(&_cpu.HL.reg, _cpu.BC.reg);
+        return 8;
+    }
+    case 0x19:
+    {
+        _CPU_16BIT_ADD(&_cpu.HL.reg, _cpu.DE.reg);
+        return 8;
+    }
+    case 0x29:
+    {
+        _CPU_16BIT_ADD(&_cpu.HL.reg, _cpu.HL.reg);
+        return 8;
+    }
+    case 0x39:
+    {
+        _CPU_16BIT_ADD(&_cpu.HL.reg, _cpu.SP.reg);
         return 8;
     }
 
@@ -768,6 +1005,13 @@ int cpu_next_execute_instruction()
         _CPU_8BIT_DEC(&_cpu.HL.lo);
         return 4;
     }
+    case 0x35:
+    {
+        BYTE byte = memory_read(_cpu.HL.reg);
+        _CPU_8BIT_DEC(&byte);
+        memory_write(_cpu.HL.reg, byte);
+        return 12;
+    }
 
     // 8-Bit compare
     case 0xBF: // Compare A with value, set flags accordingly
@@ -819,6 +1063,11 @@ int cpu_next_execute_instruction()
     }
 
     // Jump to address given by immediate word if condition is met
+    case 0xE9:
+    {
+        _cpu.PC.reg = _cpu.HL.reg;
+        return 4;
+    }
     case 0xC3:
     {
         _CPU_JUMP_TO_IMMEDIATE_WORD(true, true);
@@ -1270,6 +1519,33 @@ static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub)
     }
 }
 
+static void _CPU_16BIT_ADD(WORD *reg, WORD to_add)
+{
+    WORD before = *reg;
+    *reg += to_add;
+
+    bit_reset(&_cpu.AF.lo, FLAG_N);
+
+    uint32_t sum = (uint32_t)before + to_add;
+    if (sum > 0XFFFF)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
+    }
+    else
+    {
+        bit_reset(&_cpu.AF.lo, FLAG_C);
+    }
+
+    WORD half_sum = (before & 0xFF) + (to_add & 0xFF);
+    if (half_sum > 0XFF)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_H);
+    }
+    else
+    {
+        bit_reset(&_cpu.AF.lo, FLAG_H);
+    }
+}
 static void _CPU_8BIT_INC(BYTE *reg)
 {
     BYTE before = *reg;
