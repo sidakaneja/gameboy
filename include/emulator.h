@@ -17,6 +17,7 @@ struct emulator_context
 
     bool master_interupt;
     int disable_pending;
+    int enable_pending;
 
     SDL_Window *window;
     SDL_Renderer *renderer;
@@ -25,6 +26,7 @@ struct emulator_context
 void emulator_run(int argc, char **argv);
 
 void emulator_disable_interupts();
+void emulator_enable_interrupts();
 void emulator_request_interrupts(BYTE interrupt_bit);
 int emulator_get_clock_speed();
 void emulator_set_clock_speed(int new_speed);

@@ -43,6 +43,7 @@ static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition);
 static void _CPU_JUMP_TO_IMMEDIATE_WORD(bool condition_result, bool condition);
 static void _CPU_CALL(bool condition_result, bool condition);
 static void _CPU_RETURN(bool condition_result, bool condition);
+static void _CPU_RESTART(BYTE address);
 
 // CB instructions ///////////////////////////////////////////////////
 static void _CPU_TEST_BIT(BYTE reg, int bit);
@@ -56,7 +57,7 @@ static int _cpu_execute_cb_instruction();
 
 void temp_print_registers()
 {
-    printf("AF:%0X\tBC:%0X\tDE:%0X\tHL:%0X\tSP:%0X\n", _cpu.AF.reg, _cpu.BC.reg, _cpu.DE.reg, _cpu.HL.reg, _cpu.SP.reg);
+    printf("AF:%0X\tBC:%0X\tDE:%0X\tHL:%0X \t SP:%0X  [0XFF44] = %X\n", _cpu.AF.reg, _cpu.BC.reg, _cpu.DE.reg, _cpu.HL.reg, _cpu.SP.reg, memory_read(0XFF44));
 }
 void cpu_interrupt(WORD interrupt_address)
 {
@@ -86,6 +87,11 @@ int cpu_next_execute_instruction()
     {
     case 0x00: // NOP
     {
+        return 4;
+    }
+    case 0x10: // STOP
+    {
+        _cpu.PC.reg += 1;
         return 4;
     }
     // Load BYTE value to A from register/memory/immediate value
@@ -454,7 +460,8 @@ int cpu_next_execute_instruction()
     {
         BYTE read = _read_byte_at_pc();
         _cpu.PC.reg += 1;
-        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, memory_read(0xFF00 + read));
+        printf("0xF, reading from [0xFF00 + %X] [%X] = %X\n", read, 0XFF00 + read, memory_read(0xFF00 + read));
+        _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, 0xFF00 + read);
         return 12;
     }
     case 0xFA:
@@ -970,6 +977,11 @@ int cpu_next_execute_instruction()
         _CPU_16BIT_INC(&_cpu.SP.reg);
         return 8;
     }
+    case 0x34:
+    {
+        memory_write(_cpu.HL.reg, memory_read(_cpu.HL.reg) + 1);
+        return 12;
+    }
 
     // 8-bit decrement register
     case 0x3D:
@@ -1095,7 +1107,7 @@ int cpu_next_execute_instruction()
     case 0xC3:
     {
         _CPU_JUMP_TO_IMMEDIATE_WORD(true, true);
-        return 12;
+        return 16;
     }
     case 0xC2:
     {
@@ -1243,7 +1255,68 @@ int cpu_next_execute_instruction()
         return 12;
     }
 
+    // RST
+    case 0xC7:
+    {
+        _CPU_RESTART(0x00);
+        return 32;
+    }
+    case 0xCF:
+    {
+        _CPU_RESTART(0x08);
+        return 32;
+    }
+    case 0xD7:
+    {
+        _CPU_RESTART(0x10);
+        return 32;
+    }
+    case 0xDF:
+    {
+        _CPU_RESTART(0x18);
+        return 32;
+    }
+    case 0xE7:
+    {
+        _CPU_RESTART(0x20);
+        return 32;
+    }
+    case 0xEF:
+    {
+        _CPU_RESTART(0x28);
+        return 32;
+    }
+    case 0xF7:
+    {
+        _CPU_RESTART(0x30);
+        return 32;
+    }
+    case 0xFF:
+    {
+        _CPU_RESTART(0x38);
+        return 32;
+    }
+
     // Unique
+    case 0x07:
+    {
+        _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
+        return 4;
+    }
+    case 0x08:
+    {
+        WORD address = _read_word_at_pc();
+        _cpu.PC.reg += 2;
+        memory_write(address, _cpu.SP.lo);
+        address += 1;
+        memory_write(address, _cpu.SP.hi);
+        return 20;
+    }
+    case 0xF9:
+    {
+        _cpu.SP.reg = _cpu.HL.reg;
+        return 8;
+    }
     case 0x17: // RLA through carry
     {
         _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
@@ -1254,11 +1327,44 @@ int cpu_next_execute_instruction()
         _CPU_RR_THROUGH_CARRY(&_cpu.AF.hi);
         return 4;
     }
+    case 0x36: // LD (HL),n
+    {
+        BYTE byte = _read_byte_at_pc();
+        _cpu.PC.reg += 1;
+        memory_write(_cpu.HL.reg, byte);
+        return 12;
+    }
+    case 0x37: // Set carry flag
+    {
+        bit_reset(&_cpu.AF.lo, FLAG_N);
+        bit_reset(&_cpu.AF.lo, FLAG_H);
+        bit_set(&_cpu.AF.lo, FLAG_C);
+        return 4;
+    }
     case 0xF3: // Disable interupts
     {
         emulator_disable_interupts();
         return 4;
     }
+    case 0xE8:
+    {
+        SIGNED_BYTE byte = _read_signed_byte_at_pc();
+        _cpu.PC.reg += 1;
+        _cpu.AF.lo = 0;
+        int sum = _cpu.SP.reg + byte;
+        if (sum > 0XFFFF)
+        {
+            bit_set(&_cpu.AF.lo, FLAG_C);
+        }
+        int hsum = (_cpu.SP.lo) + (byte & 0xFF);
+        if (hsum > 0XFF)
+        {
+            bit_set(&_cpu.AF.lo, FLAG_H);
+        }
+        _cpu.SP.reg += byte;
+        return 16;
+    }
+
     case 0XEA:
     {
         WORD address = _read_word_at_pc();
@@ -1266,6 +1372,31 @@ int cpu_next_execute_instruction()
         memory_write(address, _cpu.AF.hi);
         return 16;
     }
+    case 0xFB:
+    {
+        emulator_enable_interrupts();
+        return 4;
+    }
+    case 0xF8:
+    {
+        SIGNED_BYTE byte = _read_signed_byte_at_pc();
+        _cpu.PC.reg += 1;
+        _cpu.AF.lo = 0;
+
+        WORD value = (_cpu.SP.reg + byte) & 0xFFFF;
+        _cpu.HL.reg = value;
+
+        if ((int)(_cpu.SP.reg + byte) > 0XFFFF)
+        {
+            bit_set(&_cpu.AF.lo, FLAG_C);
+        }
+        if ((_cpu.SP.reg & 0xF) + (byte & 0xF) > 0xF)
+        {
+            bit_set(&_cpu.AF.lo, FLAG_H);
+        }
+        return 12;
+    }
+
     // CB instructions
     case 0xCB:
     {
@@ -1274,7 +1405,7 @@ int cpu_next_execute_instruction()
     default:
     {
         printf("Not implemented %x at PC%x\n", opcode, _cpu.PC.reg - 1);
-        assert(false);
+        // assert(false);
     }
     };
 }
@@ -1614,6 +1745,7 @@ static void _CPU_16BIT_ADD(WORD *reg, WORD to_add)
         bit_reset(&_cpu.AF.lo, FLAG_H);
     }
 }
+
 static void _CPU_8BIT_INC(BYTE *reg)
 {
     BYTE before = *reg;
@@ -1749,6 +1881,12 @@ static void _CPU_RETURN(bool condition_result, bool condition)
     {
         _cpu.PC.reg = _pop_word_off_stack();
     }
+}
+
+static void _CPU_RESTART(BYTE address)
+{
+    _push_word_onto_stack(_cpu.PC.reg);
+    _cpu.PC.reg = 0X0000 + address;
 }
 // CB instructions ///////////////////////////////////////////////////
 

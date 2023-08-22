@@ -36,6 +36,11 @@ void memory_init(BYTE *mem)
     memory[0xFF40] = 0x91;
     memory[0xFF42] = 0x00;
     memory[0xFF43] = 0x00;
+    printf("memory[FF44] = %x\n", memory[0XFF44]);
+
+    // Temp memory setup for blarggs
+    memory[0xFF44] = 0x90;
+    //
     memory[0xFF45] = 0x00;
     memory[0xFF47] = 0xFC;
     memory[0xFF48] = 0xFF;
@@ -54,8 +59,14 @@ void memory_write(WORD address, BYTE data)
 {
     if (address == SCANLINE_ADDRESS)
     {
+        printf("Game wrote to scanline\n");
         // When a game writes to the SCANLINE_ADDRESS, it starts re-rendering from the 0th scanline
         memory[address] = 0;
+    }
+    else if (address == DIVIDER_REGISTER_ADDRESS)
+    {
+        // Gameboy resets divider register when a game writes to it
+        memory[DIVIDER_REGISTER_ADDRESS] = 0;
     }
     else if (address == DMA_ADDRESS)
     {
@@ -95,6 +106,24 @@ void memory_write(WORD address, BYTE data)
             emulator_set_clock_speed(clockSpeed);
         }
     }
+    // dont allow any writing to the read only memory
+    else if (address < 0x8000)
+    {
+    }
+
+    // writing to ECHO ram also writes in RAM
+    else if ((address >= 0xE000) && (address < 0xFE00))
+    {
+        memory[address] = data;
+        memory_write(address - 0x2000, data);
+    }
+
+    // this area is restricted
+    else if ((address >= 0xFEA0) && (address < 0xFEFF))
+    {
+    }
+
+    // no control needed over this area so write to memory
     else
     {
         memory[address] = data;

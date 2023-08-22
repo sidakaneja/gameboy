@@ -36,19 +36,19 @@ void graphics_update(int cycles)
 
         BYTE cur_scanline = memory_direct_read(SCANLINE_ADDRESS);
 
-        graphics.scanline_counter = SCANLINE_CLOCK_CYCLES;
+        graphics.scanline_counter += SCANLINE_CLOCK_CYCLES;
 
         // If reach end of visible scanlines, request a VBLANK interrupt
-        if (cur_scanline == NUM_SCANLINES)
+        if (cur_scanline == VISIBLE_SCANLINES)
         {
             emulator_request_interrupts(VBLANK_INTERRUPT);
         }
-        else if (cur_scanline > NUM_SCANLINES)
+        else if (cur_scanline > TOTAL_SCANLINES)
         {
             // Start scanlines from 0
             memory_direct_write(SCANLINE_ADDRESS, 0);
         }
-        else if (cur_scanline < NUM_SCANLINES)
+        else if (cur_scanline < VISIBLE_SCANLINES)
         {
             // Draw current scanline
             _graphics_draw_scanline();
@@ -80,7 +80,7 @@ static void _graphics_set_lcd_status()
     bool req_interrupt = false;
 
     // in vblank so set mode to 1
-    if (cur_scanline >= NUM_SCANLINES)
+    if (cur_scanline >= VISIBLE_SCANLINES)
     {
         mode = 1;
         bit_set(&status, 0);

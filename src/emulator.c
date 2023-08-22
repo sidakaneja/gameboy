@@ -115,6 +115,7 @@ static void _emulator_update()
         int cycles = cpu_next_execute_instruction();
         temp_print_registers();
         cycles_this_update += cycles;
+        printf("Executed, clock = %d (+%d)\n", cycles_this_update, cycles);
         ////////////////////////////////////////////////////
         //    blarggs test - serial output
         if (memory_direct_read(0xff02) == 0x81)
@@ -131,6 +132,14 @@ static void _emulator_update()
             if (_emulator.disable_pending == 0)
             {
                 _emulator.master_interupt = false;
+            }
+        }
+        if (_emulator.enable_pending > 0)
+        {
+            _emulator.enable_pending -= 1;
+            if (_emulator.enable_pending == 0)
+            {
+                _emulator.master_interupt = true;
             }
         }
         _emulator_update_timers(cycles);
@@ -192,6 +201,10 @@ void emulator_disable_interupts()
     _emulator.disable_pending = 2;
 }
 
+void emulator_enable_interrupts()
+{
+    _emulator.enable_pending = 2;
+}
 // Set the requested interrupt bit at the interrupt register
 void emulator_request_interrupts(BYTE interrupt_bit)
 {
@@ -298,7 +311,7 @@ static void _emulator_update_timers(int cycles)
     }
 
     // update divider register if enough clock cycles
-    if (_emulator.divider >= 256)
+    if (_emulator.divider >= 255)
     {
         _emulator.divider = 0;
         BYTE divider_reg_value = memory_direct_read(DIVIDER_REGISTER_ADDRESS);
