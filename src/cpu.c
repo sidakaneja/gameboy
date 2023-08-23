@@ -39,9 +39,9 @@ static void _CPU_16BIT_ADD(WORD *reg, WORD to_add);
 static void _CPU_16BIT_INC(WORD *reg);
 static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp);
 
-static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition);
+static BYTE _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition);
 static void _CPU_JUMP_TO_IMMEDIATE_WORD(bool condition_result, bool condition);
-static void _CPU_CALL(bool condition_result, bool condition);
+static BYTE _CPU_CALL(bool condition_result, bool condition);
 static void _CPU_RETURN(bool condition_result, bool condition);
 static void _CPU_RESTART(BYTE address);
 
@@ -57,7 +57,7 @@ static int _cpu_execute_cb_instruction();
 
 void temp_print_registers()
 {
-    printf("AF:%0X\tBC:%0X\tDE:%0X\tHL:%0X \t SP:%0X  [0XFF44] = %X\n", _cpu.AF.reg, _cpu.BC.reg, _cpu.DE.reg, _cpu.HL.reg, _cpu.SP.reg, memory_read(0XFF44));
+    // printf("AF:%0X\tBC:%0X\tDE:%0X\tHL:%0X \t SP:%0X  [0XFF44] = %X\n", _cpu.AF.reg, _cpu.BC.reg, _cpu.DE.reg, _cpu.HL.reg, _cpu.SP.reg, memory_read(0XFF44));
 }
 void cpu_interrupt(WORD interrupt_address)
 {
@@ -80,7 +80,7 @@ int cpu_next_execute_instruction()
 {
     // Read next opcode and increment PC
     BYTE opcode = memory_read(_cpu.PC.reg);
-    printf("Executing %0x at PC %x\n", opcode, _cpu.PC.reg);
+    // printf("Executing %0x at PC %x\n", opcode, _cpu.PC.reg);
     _cpu.PC.reg += 1;
 
     switch (opcode)
@@ -1133,82 +1133,72 @@ int cpu_next_execute_instruction()
     // If following condition is met then add n to current address and jump to it
     case 0x18: // JR, *
     {
-        _CPU_JUMP_IF_CONDITION(true, true);
-        return 8;
+        return _CPU_JUMP_IF_CONDITION(true, true);
     }
     case 0x20: // JR NZ,*
     {
-        _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_Z), false);
-        return 8;
+        return _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_Z), false);
     }
     case 0x28: // JR Z,*
     {
-        _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_Z), true);
-        return 8;
+        return _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_Z), true);
     }
     case 0x30: // JR NC,*
     {
-        _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_C), false);
-        return 8;
+        return _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_C), false);
     }
     case 0x38: // JR C,*
     {
-        _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_C), true);
-        return 8;
+        return _CPU_JUMP_IF_CONDITION(bit_test(_cpu.AF.lo, FLAG_C), true);
     }
 
     // calls
     case 0xCD:
     {
-        _CPU_CALL(true, true);
-        return 12;
+        return _CPU_CALL(true, true);
     }
     case 0xC4:
     {
-        _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_Z), false);
-        return 12;
+        return _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_Z), false);
     }
     case 0xCC:
     {
-        _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_Z), true);
-        return 12;
+        return _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_Z), true);
     }
     case 0xD4:
     {
-        _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_C), false);
-        return 12;
+        return _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_C), false);
     }
     case 0xDC:
     {
-        _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_C), true);
-        return 12;
+        return _CPU_CALL(bit_test(_cpu.AF.lo, FLAG_C), true);
     }
 
     // returns
     case 0xC9:
     {
         _CPU_RETURN(true, true);
-        return 8;
+        return 16;
     }
     case 0xC0:
     {
         _CPU_RETURN(bit_test(_cpu.AF.lo, FLAG_Z), false);
-        return 8;
+        return bit_test(_cpu.AF.lo, FLAG_Z) == false ? 20 : 8;
     }
     case 0xC8:
     {
         _CPU_RETURN(bit_test(_cpu.AF.lo, FLAG_Z), true);
-        return 8;
+        return bit_test(_cpu.AF.lo, FLAG_Z) == true ? 20 : 8;
     }
     case 0xD0:
     {
         _CPU_RETURN(bit_test(_cpu.AF.lo, FLAG_C), false);
-        return 8;
+        return bit_test(_cpu.AF.lo, FLAG_C) == false ? 20 : 8;
     }
     case 0xD8:
     {
         _CPU_RETURN(bit_test(_cpu.AF.lo, FLAG_C), true);
-        return 8;
+        return bit_test(_cpu.AF.lo, FLAG_C) == true ? 20 : 8;
     }
 
     // push word onto stack
@@ -1405,7 +1395,7 @@ int cpu_next_execute_instruction()
     default:
     {
         printf("Not implemented %x at PC%x\n", opcode, _cpu.PC.reg - 1);
-        // assert(false);
+        assert(false);
     }
     };
 }
@@ -1725,7 +1715,7 @@ static void _CPU_16BIT_ADD(WORD *reg, WORD to_add)
 
     bit_reset(&_cpu.AF.lo, FLAG_N);
 
-    uint32_t sum = (uint32_t)before + to_add;
+    uint32_t sum = (uint32_t)(before + to_add);
     if (sum > 0XFFFF)
     {
         bit_set(&_cpu.AF.lo, FLAG_C);
@@ -1735,8 +1725,8 @@ static void _CPU_16BIT_ADD(WORD *reg, WORD to_add)
         bit_reset(&_cpu.AF.lo, FLAG_C);
     }
 
-    WORD half_sum = (before & 0xFF) + (to_add & 0xFF);
-    if (half_sum > 0XFF)
+    WORD half_sum = (before & 0xFFF) + (to_add & 0xFFF);
+    if (half_sum > 0XFFF)
     {
         bit_set(&_cpu.AF.lo, FLAG_H);
     }
@@ -1836,17 +1826,21 @@ static void _CPU_8BIT_COMPARE(BYTE orig, BYTE comp)
     }
 }
 
-static void _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition)
+static BYTE _CPU_JUMP_IF_CONDITION(bool condition_result, bool condition)
 {
+    BYTE time = 8;
     if (condition_result == condition)
     {
         // If condition is met, go to new address
         SIGNED_BYTE add_to_cur_address = _read_signed_byte_at_pc();
         _cpu.PC.reg += add_to_cur_address;
+        // 4 more cycles if jump
+        time = 12;
     }
     // add 1 to PC to go to next instruction in both cases.
     // jump if condition met assumes PC is AT next instruction before adding to it
     _cpu.PC.reg += 1;
+    return time;
 }
 
 static void _CPU_JUMP_TO_IMMEDIATE_WORD(bool condition_result, bool condition)
@@ -1862,8 +1856,9 @@ static void _CPU_JUMP_TO_IMMEDIATE_WORD(bool condition_result, bool condition)
     }
 }
 
-static void _CPU_CALL(bool condition_result, bool condition)
+static BYTE _CPU_CALL(bool condition_result, bool condition)
 {
+    BYTE cycles = 12;
     WORD new_address = _read_word_at_pc();
     _cpu.PC.reg += 2;
 
@@ -1871,7 +1866,9 @@ static void _CPU_CALL(bool condition_result, bool condition)
     {
         _push_word_onto_stack(_cpu.PC.reg);
         _cpu.PC.reg = new_address;
+        cycles = 24;
     }
+    return cycles;
 }
 
 // pop word off stack and set PC to it if condition is met.

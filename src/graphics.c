@@ -306,6 +306,11 @@ static void _graphics_render_background(BYTE lcd_control)
             green = 0x77;
             blue = 0x77;
             break;
+        case BLACK:
+            red = 0;
+            green = 0;
+            blue = 0;
+            break;
         }
 
         int final_y = memory_read(0xFF44);
@@ -405,6 +410,11 @@ static void _graphics_render_sprites(BYTE lcd_control)
                     red = 0x77;
                     green = 0x77;
                     blue = 0x77;
+                    break;
+                case BLACK:
+                    red = 0;
+                    green = 0;
+                    blue = 0;
                     break;
                 }
 
