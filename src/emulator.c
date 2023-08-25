@@ -10,6 +10,10 @@
 
 static struct emulator_context _emulator;
 
+// Temp count!!!!/////////////////////
+static int temp_count = 0;
+static long long total_cyles = 0;
+// Temp count!!!!/////////////////////
 static void _emulator_update_timers(int cycles);
 static void _emulator_handle_interrupts();
 static void _emulator_service_interrupt(BYTE bit_to_service);
@@ -112,10 +116,15 @@ static void _emulator_update()
     while (cycles_this_update < CYCLES_PER_FRAME)
     {
         // Replace with cycles for next opcode
-        int cycles = cpu_next_execute_instruction();
-        temp_print_registers();
+        int cycles = 4;
+        if (!_emulator.halted)
+        {
+            cycles = cpu_next_execute_instruction();
+            temp_print_registers();
+        }
         cycles_this_update += cycles;
-        printf("Executed, clock = %d (+%d)\n", cycles_this_update, cycles);
+        total_cyles += cycles;
+        // printf("Executed, clock = %lld (+%d)\n", total_cyles, cycles);
         ////////////////////////////////////////////////////
         //    blarggs test - serial output
         if (memory_direct_read(0xff02) == 0x81)
@@ -146,9 +155,10 @@ static void _emulator_update()
         graphics_update(cycles);
         _emulator_handle_interrupts();
     }
-    // assert(false);
     // printf("Rendering\n");
     _sdl_render();
+    // assert(temp_count != 10);
+    temp_count += 1;
 }
 
 // Main emulator loop
@@ -211,6 +221,7 @@ void emulator_request_interrupts(BYTE interrupt_bit)
     BYTE req = memory_read(INTERRUPT_REGISTER_ADDRESS);
     bit_set(&req, interrupt_bit);
     memory_write(INTERRUPT_REGISTER_ADDRESS, req);
+    _emulator.halted = false;
 }
 static void _emulator_handle_interrupts()
 {
@@ -240,6 +251,10 @@ static void _emulator_handle_interrupts()
     }
 }
 
+void emulator_enable_interrupts_immediate()
+{
+    _emulator.master_interupt = true;
+}
 static void _emulator_service_interrupt(BYTE bit_to_service)
 {
 
@@ -328,4 +343,8 @@ void emulator_set_clock_speed(int new_speed)
 {
     _emulator.timer = 0;
     _emulator.timer_clocks_per_increment = new_speed;
+}
+void emulator_halt()
+{
+    _emulator.halted = true;
 }

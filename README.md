@@ -16,6 +16,11 @@ make
 ## Dependency 
 SDL2 library.
 
+
+## Blargg Test Rom Status
+### Blargg CPU instructions test
+- Passed: 02, 05, 06, 07
+
 ## Internals
 - Will be periodically updated. 
 - May be turned into a more in-depth guide.

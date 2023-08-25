@@ -36,10 +36,10 @@ void memory_init(BYTE *mem)
     memory[0xFF40] = 0x91;
     memory[0xFF42] = 0x00;
     memory[0xFF43] = 0x00;
-    printf("memory[FF44] = %x\n", memory[0XFF44]);
 
     // Temp memory setup for blarggs
-    memory[0xFF44] = 0x90;
+    memory[0xFF44] = 0x99;
+    printf("memory[FF44] = %x\n", memory[0XFF44]);
     //
     memory[0xFF45] = 0x00;
     memory[0xFF47] = 0xFC;

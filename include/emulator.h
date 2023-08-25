@@ -10,6 +10,7 @@
 struct emulator_context
 {
     bool quit;
+    bool halted;
     int timer_clocks_per_increment;
     // Both timer and divider store clocks cycles to / from incrementing their respective registers
     int timer;
@@ -27,7 +28,10 @@ void emulator_run(int argc, char **argv);
 
 void emulator_disable_interupts();
 void emulator_enable_interrupts();
+void emulator_enable_interrupts_immediate();
 void emulator_request_interrupts(BYTE interrupt_bit);
+
 int emulator_get_clock_speed();
 void emulator_set_clock_speed(int new_speed);
+void emulator_halt();
 #endif

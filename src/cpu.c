@@ -32,6 +32,7 @@ static void _CPU_16BIT_DEC(WORD *reg);
 static void _CPU_8BIT_INC(BYTE *reg);
 
 static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add);
+// static void _CPU_8BIT_ADC(BYTE *reg, WORD to_add);
 static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub);
 
 static void _CPU_16BIT_ADD(WORD *reg, WORD to_add);
@@ -48,8 +49,10 @@ static void _CPU_RESTART(BYTE address);
 // CB instructions ///////////////////////////////////////////////////
 static void _CPU_TEST_BIT(BYTE reg, int bit);
 static void _CPU_RL_THROUGH_CARRY(BYTE *byte);
+static void _CPU_RL_INTO_CARRY(BYTE *byte);
 static void _CPU_SHIFT_RIGHT_INTO_CARRY(BYTE *reg);
 static void _CPU_RR_THROUGH_CARRY(BYTE *reg);
+static void _CPU_RR_INTO_CARRY(BYTE *byte);
 
 static void _CPU_SWAP_NIBBLES(BYTE *reg);
 
@@ -460,7 +463,7 @@ int cpu_next_execute_instruction()
     {
         BYTE read = _read_byte_at_pc();
         _cpu.PC.reg += 1;
-        printf("0xF, reading from [0xFF00 + %X] [%X] = %X\n", read, 0XFF00 + read, memory_read(0xFF00 + read));
+        // printf("0xF, reading from [0xFF00 + %X] [%X] = %X\n", read, 0XFF00 + read, memory_read(0xFF00 + read));
         _CPU_REG_LOAD_FROM_MEMORY(&_cpu.AF.hi, 0xFF00 + read);
         return 12;
     }
@@ -1290,7 +1293,16 @@ int cpu_next_execute_instruction()
     // Unique
     case 0x07:
     {
-        _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
+        _CPU_RL_INTO_CARRY(&_cpu.AF.hi);
+        // Have to reset zero bit, otherwise fails Blarggs 09
+        bit_reset(&_cpu.AF.lo, FLAG_Z);
+        return 4;
+    }
+    case 0x0F:
+    {
+        _CPU_RR_INTO_CARRY(&_cpu.AF.hi);
+        // Have to reset zero bit, otherwise fails Blarggs 09
+        bit_reset(&_cpu.AF.lo, FLAG_Z);
         return 4;
     }
     case 0x08:
@@ -1302,6 +1314,34 @@ int cpu_next_execute_instruction()
         memory_write(address, _cpu.SP.hi);
         return 20;
     }
+    case 0x2F:
+    {
+        _cpu.AF.hi ^= 0xFF;
+        bit_set(&_cpu.AF.lo, FLAG_N);
+        bit_set(&_cpu.AF.lo, FLAG_H);
+        return 4;
+    }
+    case 0x3F:
+    {
+        if (bit_test(_cpu.AF.lo, FLAG_C))
+        {
+            bit_reset(&_cpu.AF.lo, FLAG_C);
+        }
+        else
+        {
+            bit_set(&_cpu.AF.lo, FLAG_C);
+        }
+
+        bit_reset(&_cpu.AF.lo, FLAG_N);
+        bit_reset(&_cpu.AF.lo, FLAG_H);
+        return 4;
+    }
+    case 0xD9:
+    {
+        _cpu.PC.reg = _pop_word_off_stack();
+        emulator_enable_interrupts_immediate();
+        return 16;
+    }
     case 0xF9:
     {
         _cpu.SP.reg = _cpu.HL.reg;
@@ -1310,6 +1350,8 @@ int cpu_next_execute_instruction()
     case 0x17: // RLA through carry
     {
         _CPU_RL_THROUGH_CARRY(&_cpu.AF.hi);
+        // Have to reset zero bit, otherwise fails Blarggs 09
+        bit_reset(&_cpu.AF.lo, FLAG_Z);
         return 4;
     }
     case 0x1F: // RRA through carry
@@ -1340,14 +1382,16 @@ int cpu_next_execute_instruction()
     {
         SIGNED_BYTE byte = _read_signed_byte_at_pc();
         _cpu.PC.reg += 1;
+
         _cpu.AF.lo = 0;
+
         int sum = _cpu.SP.reg + byte;
-        if (sum > 0XFFFF)
+        if (sum & 0XFFFF0000)
         {
             bit_set(&_cpu.AF.lo, FLAG_C);
         }
-        int hsum = (_cpu.SP.lo) + (byte & 0xFF);
-        if (hsum > 0XFF)
+
+        if (((_cpu.SP.reg & 0x0F) + (byte & 0x0F)) > 0X0F)
         {
             bit_set(&_cpu.AF.lo, FLAG_H);
         }
@@ -1362,6 +1406,11 @@ int cpu_next_execute_instruction()
         memory_write(address, _cpu.AF.hi);
         return 16;
     }
+    case 0x76:
+    {
+        emulator_halt();
+        return 4;
+    }
     case 0xFB:
     {
         emulator_enable_interrupts();
@@ -1372,6 +1421,8 @@ int cpu_next_execute_instruction()
         SIGNED_BYTE byte = _read_signed_byte_at_pc();
         _cpu.PC.reg += 1;
         _cpu.AF.lo = 0;
+
+        WORD hl_before = _cpu.HL.reg;
 
         WORD value = (_cpu.SP.reg + byte) & 0xFFFF;
         _cpu.HL.reg = value;
@@ -1384,6 +1435,7 @@ int cpu_next_execute_instruction()
         {
             bit_set(&_cpu.AF.lo, FLAG_H);
         }
+        printf("In F8, Adding %X to %X. HL is now %X. Flag C = %d Flag H = %d\n", byte, hl_before, _cpu.HL.reg, bit_test(_cpu.AF.lo, FLAG_C), bit_test(_cpu.AF.lo, FLAG_C));
         return 12;
     }
 
@@ -1662,11 +1714,11 @@ static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add)
     {
         bit_set(&_cpu.AF.lo, FLAG_Z);
     }
+    // negative is unset
 
-    WORD htest = (before & 0xF);
-    htest += (to_add & 0xF);
+    WORD hsum = (before & 0x0F) + (to_add & 0x0F);
 
-    if (htest > 0xF)
+    if (hsum & 0XF0)
     {
         bit_set(&_cpu.AF.lo, FLAG_H);
     }
@@ -1678,6 +1730,23 @@ static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add)
         bit_set(&_cpu.AF.lo, FLAG_C);
     }
 }
+
+// static void _CPU_8BIT_ADC(BYTE *reg, WORD to_add)
+// {
+//     _cpu.AF.lo = 0;
+//     int result = *reg + to_add;
+
+//     if (result & 0xff00)
+//         bit_set(&_cpu.AF.lo, FLAG_C);
+
+//     if (((to_add & 0x0f) + (*reg & 0x0f)) > 0x0f)
+//         bit_set(&_cpu.AF.lo, FLAG_H);
+
+//     *reg = (BYTE)(result & 0xff);
+
+//     if (*reg == 0)
+//         bit_set(&_cpu.AF.lo, FLAG_Z);
+// }
 
 static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub)
 {
@@ -1699,10 +1768,7 @@ static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub)
         bit_set(&_cpu.AF.lo, FLAG_C);
     }
 
-    SIGNED_WORD htest = (before & 0xF);
-    htest -= (before & 0xF);
-
-    if (htest < 0)
+    if ((before & 0x0F) < (to_sub & 0x0F))
     {
         bit_set(&_cpu.AF.lo, FLAG_H);
     }
@@ -1924,6 +1990,24 @@ static void _CPU_RL_THROUGH_CARRY(BYTE *byte)
     }
 }
 
+static void _CPU_RL_INTO_CARRY(BYTE *byte)
+{
+    _cpu.AF.lo = 0;
+    bool msb_set = bit_test(*byte, 7);
+
+    *byte <<= 1;
+    if (msb_set)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
+        bit_set(byte, 0);
+    }
+    // Have to reset zero bit in 0x07, otherwise fails Blarggs 09
+    if (*byte == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+}
+
 static void _CPU_SHIFT_RIGHT_INTO_CARRY(BYTE *reg)
 {
 
@@ -1938,6 +2022,24 @@ static void _CPU_SHIFT_RIGHT_INTO_CARRY(BYTE *reg)
         bit_set(&_cpu.AF.lo, FLAG_C);
     }
     if (reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+}
+
+static void _CPU_RR_INTO_CARRY(BYTE *byte)
+{
+    _cpu.AF.lo = 0;
+    bool lsb_set = bit_test(*byte, 0);
+
+    *byte >>= 1;
+    if (lsb_set)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
+        bit_set(byte, 7);
+    }
+    // Have to reset zero bit in 0x07, otherwise fails Blarggs 09
+    if (*byte == 0)
     {
         bit_set(&_cpu.AF.lo, FLAG_Z);
     }
