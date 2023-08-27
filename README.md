@@ -19,7 +19,7 @@ SDL2 library.
 
 ## Blargg Test Rom Status
 ### Blargg CPU instructions test
-- Passed: 02, 05, 06, 07
+- Passed: 02, 05, 06, 07, 10
 
 ## Internals
 - Will be periodically updated. 

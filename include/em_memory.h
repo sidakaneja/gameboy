@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "config.h"
 
-void memory_init(BYTE *mem);
+void memory_init(BYTE *mem, BYTE *boot);
 
 BYTE memory_read(WORD address);
 void memory_write(WORD address, BYTE data);

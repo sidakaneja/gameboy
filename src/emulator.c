@@ -175,12 +175,18 @@ void emulator_run(int argc, char **argv)
     BYTE *m_CartridgeMemory = (BYTE *)malloc(0x200000 * sizeof(BYTE));
     memset(m_CartridgeMemory, 0, (0x200000 * sizeof(BYTE)));
 
+    BYTE *boot = (BYTE *)malloc(0x100 * sizeof(BYTE));
+    memset(boot, 0, (0x100 * sizeof(BYTE)));
+
     FILE *in;
     in = fopen(argv[1], "rb");
     fread(m_CartridgeMemory, 1, 0x200000, in);
     fclose(in);
+    in = fopen(argv[2], "rb");
+    fread(boot, 1, 0x100, in);
+    fclose(in);
 
-    memory_init(m_CartridgeMemory);
+    memory_init(m_CartridgeMemory, boot);
     cpu_intialize();
 
     // Infinite loop that runs until the user closes the window
