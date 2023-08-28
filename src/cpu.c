@@ -33,8 +33,9 @@ static void _CPU_16BIT_DEC(WORD *reg);
 static void _CPU_8BIT_INC(BYTE *reg);
 
 static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add);
-// static void _CPU_8BIT_ADC(BYTE *reg, WORD to_add);
+static void _CPU_8BIT_ADC(BYTE *reg, BYTE to_add);
 static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub);
+static void _CPU_8BIT_SUBC(BYTE *reg, BYTE to_sub);
 
 static void _CPU_16BIT_ADD(WORD *reg, WORD to_add);
 
@@ -819,7 +820,8 @@ int cpu_next_execute_instruction()
     }
     case 0x8E:
     {
-        _CPU_8BIT_ADD(&_cpu.AF.hi, memory_read(_cpu.HL.reg) + bit_get(_cpu.AF.lo, FLAG_C));
+        // _CPU_8BIT_ADD(&_cpu.AF.hi, bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_ADC(&_cpu.AF.hi, memory_read(_cpu.HL.reg));
         return 8;
     }
     case 0xCE:
@@ -937,7 +939,7 @@ int cpu_next_execute_instruction()
     }
     case 0X9E:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, memory_read(_cpu.HL.reg) + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, memory_read(_cpu.HL.reg));
         return 8;
     }
     case 0XDE:
@@ -1007,7 +1009,9 @@ int cpu_next_execute_instruction()
     }
     case 0x34:
     {
-        memory_write(_cpu.HL.reg, memory_read(_cpu.HL.reg) + 1);
+        BYTE stored = memory_read(_cpu.HL.reg);
+        _CPU_8BIT_INC(&stored);
+        memory_write(_cpu.HL.reg, stored);
         return 12;
     }
 
@@ -2846,40 +2850,33 @@ static int _cpu_execute_cb_instruction()
 
 static void _CPU_DAA()
 {
+    WORD s = _cpu.AF.hi;
 
     if (bit_test(_cpu.AF.lo, FLAG_N))
     {
-        if ((_cpu.AF.hi & 0x0F) > 0x09 || _cpu.AF.lo & 0x20)
-        {
-            _cpu.AF.hi -= 0x06; // Half borrow: (0-1) = (0xF-0x6) = 9
-            if ((_cpu.AF.hi & 0xF0) == 0xF0)
-                _cpu.AF.lo |= 0x10;
-            else
-                _cpu.AF.lo &= ~0x10;
-        }
-
-        if ((_cpu.AF.hi & 0xF0) > 0x90 || _cpu.AF.lo & 0x10)
-            _cpu.AF.hi -= 0x60;
+        if (bit_test(_cpu.AF.lo, FLAG_H))
+            s = (s - 0x06) & 0xFF;
+        if (bit_test(_cpu.AF.lo, FLAG_C))
+            s -= 0x60;
     }
     else
     {
-        if ((_cpu.AF.hi & 0x0F) > 9 || _cpu.AF.lo & 0x20)
-        {
-            _cpu.AF.hi += 0x06; // Half carry: (9+1) = (0xA+0x6) = 10
-            if ((_cpu.AF.hi & 0xF0) == 0)
-                _cpu.AF.lo |= 0x10;
-            else
-                _cpu.AF.lo &= ~0x10;
-        }
-
-        if ((_cpu.AF.hi & 0xF0) > 0x90 || _cpu.AF.lo & 0x10)
-            _cpu.AF.hi += 0x60;
+        if (bit_test(_cpu.AF.lo, FLAG_H) || (s & 0xF) > 9)
+            s += 0x06;
+        if (bit_test(_cpu.AF.lo, FLAG_C) || s > 0x9F)
+            s += 0x60;
     }
 
-    if (_cpu.AF.hi == 0)
-        _cpu.AF.lo |= 0x80;
+    _cpu.AF.hi = s;
+    bit_reset(&_cpu.AF.lo, FLAG_H);
+
+    if (_cpu.AF.hi)
+        bit_reset(&_cpu.AF.lo, FLAG_Z);
     else
-        _cpu.AF.lo &= ~0x80;
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+
+    if (s >= 0x100)
+        bit_set(&_cpu.AF.lo, FLAG_C);
 }
 // Take BYTE at PC and set register to it
 static void _CPU_8BIT_LOAD(BYTE *reg)
@@ -2978,22 +2975,29 @@ static void _CPU_8BIT_ADD(BYTE *reg, BYTE to_add)
     }
 }
 
-// static void _CPU_8BIT_ADC(BYTE *reg, WORD to_add)
-// {
-//     _cpu.AF.lo = 0;
-//     int result = *reg + to_add;
+static void _CPU_8BIT_ADC(BYTE *reg, BYTE to_add)
+{
+    BYTE carry = bit_get(_cpu.AF.lo, FLAG_C);
+    _cpu.AF.lo = 0;
+    int result = *reg + to_add + carry;
 
-//     if (result & 0xff00)
-//         bit_set(&_cpu.AF.lo, FLAG_C);
+    if (result & 0xff00)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
+    }
 
-//     if (((to_add & 0x0f) + (*reg & 0x0f)) > 0x0f)
-//         bit_set(&_cpu.AF.lo, FLAG_H);
+    if (((to_add & 0x0f) + (*reg & 0x0f) + carry) > 0x0f)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_H);
+    }
 
-//     *reg = (BYTE)(result & 0xff);
+    *reg = (BYTE)(result & 0xff);
 
-//     if (*reg == 0)
-//         bit_set(&_cpu.AF.lo, FLAG_Z);
-// }
+    if (*reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
+    }
+}
 
 static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub)
 {
@@ -3018,6 +3022,34 @@ static void _CPU_8BIT_SUB(BYTE *reg, BYTE to_sub)
     if ((before & 0x0F) < (to_sub & 0x0F))
     {
         bit_set(&_cpu.AF.lo, FLAG_H);
+    }
+}
+
+static void _CPU_8BIT_SUBC(BYTE *reg, BYTE to_sub)
+{
+    // BYTE before = *reg;
+    // *reg -= to_sub;
+
+    BYTE carry = bit_get(_cpu.AF.lo, FLAG_C);
+    _cpu.AF.lo = 0;
+
+    bit_set(&_cpu.AF.lo, FLAG_N);
+
+    // set if no borrow
+    if (*reg < (to_sub + carry))
+    {
+        bit_set(&_cpu.AF.lo, FLAG_C);
+    }
+
+    if ((*reg & 0x0F) < ((to_sub & 0x0F) + carry))
+    {
+        bit_set(&_cpu.AF.lo, FLAG_H);
+    }
+
+    *reg -= (to_sub) + carry;
+    if (*reg == 0)
+    {
+        bit_set(&_cpu.AF.lo, FLAG_Z);
     }
 }
 
