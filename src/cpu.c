@@ -1238,6 +1238,9 @@ int cpu_next_execute_instruction()
     case 0xF1:
     {
         _cpu.AF.reg = _pop_word_off_stack();
+        // Need to mask since the lower four bits of AF are hardwired to zero.
+        // Took me hours to find the bug :(
+        _cpu.AF.reg &= 0xfff0;
         return 12;
     }
     case 0xC1:
@@ -1390,23 +1393,19 @@ int cpu_next_execute_instruction()
     }
     case 0xE8:
     {
-        // SIGNED_BYTE byte = _read_signed_byte_at_pc();
-        SIGNED_BYTE n = memory_read(_cpu.PC.reg);
+        WORD reg = _cpu.SP.reg;
+        SIGNED_BYTE value = _read_signed_byte_at_pc();
         _cpu.PC.reg += 1;
 
+        int result = (int)(reg + value);
         _cpu.AF.lo = 0;
-
-        int sum = _cpu.SP.reg + n;
-        if (sum & 0XFFFF0000)
-        {
-            bit_set(&_cpu.AF.lo, FLAG_C);
-        }
-
-        if (((_cpu.SP.reg & 0x0F) + (n & 0x0F)) > 0X0F)
-        {
+        if (((reg ^ value ^ (result & 0xFFFF)) & 0x10) == 0x10)
             bit_set(&_cpu.AF.lo, FLAG_H);
-        }
-        _cpu.SP.reg = sum & 0xFFFF;
+        if (((reg ^ value ^ (result & 0xFFFF)) & 0x100) == 0x100)
+            bit_set(&_cpu.AF.lo, FLAG_C);
+
+        _cpu.SP.reg = (WORD)result;
+
         return 16;
     }
 
@@ -1429,24 +1428,19 @@ int cpu_next_execute_instruction()
     }
     case 0xF8:
     {
-        SIGNED_BYTE n = _read_signed_byte_at_pc();
+        WORD reg = _cpu.SP.reg;
+        SIGNED_BYTE value = _read_signed_byte_at_pc();
         _cpu.PC.reg += 1;
+
+        int result = (int)(reg + value);
         _cpu.AF.lo = 0;
-
-        WORD hl_before = _cpu.HL.reg;
-
-        WORD value = (_cpu.SP.reg + n) & 0xFFFF;
-        _cpu.HL.reg = value;
-
-        if ((int)(_cpu.SP.reg + n) > 0XFFFF)
-        {
-            bit_set(&_cpu.AF.lo, FLAG_C);
-        }
-        if ((_cpu.SP.reg & 0xF) + (n & 0xF) > 0xF)
-        {
+        if (((reg ^ value ^ (result & 0xFFFF)) & 0x10) == 0x10)
             bit_set(&_cpu.AF.lo, FLAG_H);
-        }
-        printf("In F8, Adding %X to %X. HL is now %X. Flag C = %d Flag H = %d\n", n, hl_before, _cpu.HL.reg, bit_test(_cpu.AF.lo, FLAG_C), bit_test(_cpu.AF.lo, FLAG_C));
+        if (((reg ^ value ^ (result & 0xFFFF)) & 0x100) == 0x100)
+            bit_set(&_cpu.AF.lo, FLAG_C);
+
+        _cpu.HL.reg = (WORD)result;
+
         return 12;
     }
     case 0x27: // DAA
@@ -3413,18 +3407,21 @@ static SIGNED_BYTE _read_signed_byte_at_pc()
 
 static void _push_word_onto_stack(WORD word)
 {
-    BYTE hi = word >> 8;
-    BYTE lo = word & 0xFF;
-    _cpu.SP.reg -= 1;
-    memory_write(_cpu.SP.reg, hi);
-    _cpu.SP.reg -= 1;
-    memory_write(_cpu.SP.reg, lo);
+    // BYTE hi = word >> 8;
+    // BYTE lo = word & 0xFF;
+    // _cpu.SP.reg -= 1;
+    // memory_write(_cpu.SP.reg, hi);
+    // _cpu.SP.reg -= 1;
+    // memory_write(_cpu.SP.reg, lo);
+
+    _cpu.SP.reg -= 2;
+    memory_write(_cpu.SP.reg, (word & 0x00ff));
+    memory_write(_cpu.SP.reg + 1, ((word & 0xff00) >> 8));
 }
 
 static WORD _pop_word_off_stack()
 {
-    WORD word = memory_read(_cpu.SP.reg + 1) << 8;
-    word |= memory_read(_cpu.SP.reg);
+    WORD word = memory_read(_cpu.SP.reg) | (memory_read(_cpu.SP.reg + 1) << 8);
     _cpu.SP.reg += 2;
 
     return word;
