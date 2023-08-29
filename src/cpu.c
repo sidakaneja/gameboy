@@ -765,68 +765,47 @@ int cpu_next_execute_instruction()
     case 0x8F:
     {
 
-        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.AF.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_ADC(&_cpu.AF.hi, _cpu.AF.hi);
         return 4;
     }
     case 0x88:
     {
-        // _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.BC.hi + bit_get(_cpu.AF.lo, FLAG_C));
-        // return 4;
-        WORD to_add = +_cpu.BC.hi + bit_get(_cpu.AF.lo, FLAG_C);
-        WORD sum = _cpu.AF.hi + to_add;
-        BYTE store = sum;
-
-        _cpu.AF.lo = 0x00;
-        if (store == 0)
-        {
-            bit_set(&_cpu.AF.lo, FLAG_Z);
-        }
-        if ((_cpu.AF.hi & 0xF) + (to_add & 0xF) > 0xF)
-        {
-
-            bit_set(&_cpu.AF.lo, FLAG_H);
-        }
-        if (sum > 0XFF)
-        {
-            bit_set(&_cpu.AF.lo, FLAG_C);
-        }
-        _cpu.AF.hi = store;
+        _CPU_8BIT_ADC(&_cpu.AF.hi, _cpu.BC.hi);
         return 4;
     }
     case 0x89:
     {
-        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.BC.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_ADC(&_cpu.AF.hi, _cpu.BC.lo);
         return 4;
     }
     case 0x8A:
     {
-        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.DE.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_ADC(&_cpu.AF.hi, _cpu.DE.hi);
         return 4;
     }
     case 0x8B:
     {
-        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.DE.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_ADC(&_cpu.AF.hi, _cpu.DE.lo);
         return 4;
     }
     case 0x8C:
     {
-        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.HL.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_ADC(&_cpu.AF.hi, _cpu.HL.hi);
         return 4;
     }
     case 0x8D:
     {
-        _CPU_8BIT_ADD(&_cpu.AF.hi, _cpu.HL.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_ADC(&_cpu.AF.hi, _cpu.HL.lo);
         return 4;
     }
     case 0x8E:
     {
-        // _CPU_8BIT_ADD(&_cpu.AF.hi, bit_get(_cpu.AF.lo, FLAG_C));
         _CPU_8BIT_ADC(&_cpu.AF.hi, memory_read(_cpu.HL.reg));
         return 8;
     }
     case 0xCE:
     {
-        _CPU_8BIT_ADD(&_cpu.AF.hi, _read_byte_at_pc() + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_ADC(&_cpu.AF.hi, _read_byte_at_pc());
         _cpu.PC.reg += 1;
         return 8;
     }
@@ -904,37 +883,37 @@ int cpu_next_execute_instruction()
     // 8-bit subtract + carry
     case 0x9F:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.AF.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, _cpu.AF.hi);
         return 4;
     }
     case 0X98:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.BC.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, _cpu.BC.hi);
         return 4;
     }
     case 0X99:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.BC.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, _cpu.BC.lo);
         return 4;
     }
     case 0X9A:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.DE.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, _cpu.DE.hi);
         return 4;
     }
     case 0X9B:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.DE.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, _cpu.DE.lo);
         return 4;
     }
     case 0X9C:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.HL.hi + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, _cpu.HL.hi);
         return 4;
     }
     case 0X9D:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, _cpu.HL.lo + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, _cpu.HL.lo);
         return 4;
     }
     case 0X9E:
@@ -944,7 +923,7 @@ int cpu_next_execute_instruction()
     }
     case 0XDE:
     {
-        _CPU_8BIT_SUB(&_cpu.AF.hi, _read_byte_at_pc() + bit_get(_cpu.AF.lo, FLAG_C));
+        _CPU_8BIT_SUBC(&_cpu.AF.hi, _read_byte_at_pc());
         _cpu.PC.reg += 1;
         return 8;
     }
@@ -1386,6 +1365,8 @@ int cpu_next_execute_instruction()
     case 0x1F: // RRA through carry
     {
         _CPU_RR_THROUGH_CARRY(&_cpu.AF.hi);
+        // Have to reset zero bit, otherwise fails Blarggs 09
+        bit_reset(&_cpu.AF.lo, FLAG_Z);
         return 4;
     }
     case 0x36: // LD (HL),n
